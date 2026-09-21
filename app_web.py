@@ -371,7 +371,9 @@ if st.session_state["dados_extraidos"]:
 
             gerar_planilha_notas(
                 dados_extraidos,
-                caminho_saida=caminho_excel
+                caminho_saida=caminho_excel,
+                honorario_por_medico=honorario_por_medico,
+                darf_gps_por_medico=darf_gps_por_medico
             )
 
 

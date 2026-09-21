@@ -1,145 +1,1006 @@
 import openpyxl
-from openpyxl.styles import Font, Alignment
+from openpyxl import Workbook
+from openpyxl.styles import Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
-def gerar_planilha_notas(dados_notas, caminho_saida="relatorio_notas_fiscais.xlsx"):
+
+def gerar_planilha_notas(
+    dados_notas,
+    caminho_saida="relatorio_notas_fiscais.xlsx",
+    honorario_por_medico=0,
+    darf_gps_por_medico=0
+):
     """
-    Cria a planilha completa com dados das notas, demonstrativo de médicos 
-    e protocolo inteligente de impostos.
+    Gera um arquivo Excel completo contendo:
+
+    1. Planilha Geral
+    2. Uma aba para cada médico
+
+    Os cálculos das abas dos médicos seguem a mesma regra
+    utilizada na página individual do médico no Streamlit.
     """
-    wb = openpyxl.Workbook()
+
+    wb = Workbook()
+
+    # ========================================================
+    # ESTILOS
+    # ========================================================
+
+    fonte_titulo = Font(
+        bold=True,
+        size=14
+    )
+
+    fonte_cabecalho = Font(
+        bold=True
+    )
+
+    fonte_total = Font(
+        bold=True
+    )
+
+    alinhamento_centro = Alignment(
+        horizontal="center",
+        vertical="center"
+    )
+
+    alinhamento_esquerda = Alignment(
+        horizontal="left",
+        vertical="center"
+    )
+
+    borda = Border(
+        left=Side(style="thin"),
+        right=Side(style="thin"),
+        top=Side(style="thin"),
+        bottom=Side(style="thin")
+    )
+
+    formato_moeda = 'R$ #,##0.00'
+
+    # ========================================================
+    # MÉDICOS ENCONTRADOS
+    # ========================================================
+
+    medicos = sorted(
+        set(
+            nota.get("Medico", "").strip()
+            for nota in dados_notas
+            if nota.get("Medico", "").strip()
+        )
+    )
+
+    quantidade_medicos = len(medicos)
+
+    # ========================================================
+    # ABA GERAL
+    # ========================================================
+
     ws = wb.active
     ws.title = "Planilha Geral"
 
+    ws["A1"] = "PLANILHA DE FATURAMENTO"
+    ws["A1"].font = fonte_titulo
+
     # ========================================================
-    # CABEÇALHOS DAS NOTAS FISCAIS
+    # CABEÇALHOS DAS NOTAS
     # ========================================================
+
     cabecalhos = [
-        "DATA", "CLIENTE", "N.FISCAL", "VALOR", 
-        "IR", "INSS", "PIS/COFINS/CSLL", "VALOR LÍQUIDO", "MÉDICO"
+        "DATA",
+        "CLIENTE",
+        "N.FISCAL",
+        "VALOR",
+        "IR",
+        "INSS",
+        "PIS/COFINS/CSLL",
+        "VALOR LÍQUIDO",
+        "MÉDICO"
     ]
 
-    for col_num, cabecalho in enumerate(cabecalhos, 1):
-        celula = ws.cell(row=1, column=col_num, value=cabecalho)
-        celula.font = Font(bold=True)
-        celula.alignment = Alignment(horizontal="center")
+    linha = 3
+
+    for coluna, cabecalho in enumerate(
+        cabecalhos,
+        start=1
+    ):
+
+        celula = ws.cell(
+            row=linha,
+            column=coluna,
+            value=cabecalho
+        )
+
+        celula.font = fonte_cabecalho
+        celula.alignment = alinhamento_centro
+        celula.border = borda
+
+    linha += 1
+
+    linha_inicio_notas = linha
 
     # ========================================================
-    # PREENCHIMENTO DAS NOTAS E EXTRAÇÃO DE MÉDICOS
+    # NOTAS FISCAIS
     # ========================================================
-    linha = 2
-    medicos_encontrados = set()
 
     for nota in dados_notas:
-        ws.cell(row=linha, column=1, value=nota.get("DataEmissao", ""))
-        ws.cell(row=linha, column=2, value=nota.get("TomadorServico", ""))
-        ws.cell(row=linha, column=3, value=nota.get("NumeroNF", ""))
-        
-        valor = float(nota.get("ValorTotal", 0))
-        ir = float(nota.get("ValorIr", 0))
-        inss = float(nota.get("ValorInss", 0))
-        pis_cofins_csll = float(nota.get("SomaPisCofinsCsll", 0))
-        
-        # Atribuição de valores com formatação de moeda
-        for col_idx, val in enumerate([valor, ir, inss, pis_cofins_csll], start=4):
-            c = ws.cell(row=linha, column=col_idx, value=val)
-            c.number_format = 'R$ #,##0.00'
-        
-        # Fórmula do Valor Líquido
-        cel_liq = ws.cell(row=linha, column=8, value=f"=D{linha}-E{linha}-F{linha}-G{linha}")
-        cel_liq.number_format = 'R$ #,##0.00'
-        
-        nome_medico = nota.get("Medico", "").strip()
-        ws.cell(row=linha, column=9, value=nome_medico)
-        
-        if nome_medico:
-            medicos_encontrados.add(nome_medico)
-            
+
+        data = nota.get(
+            "DataEmissao",
+            ""
+        )
+
+        cliente = nota.get(
+            "TomadorServico",
+            ""
+        )
+
+        numero_nf = nota.get(
+            "NumeroNF",
+            ""
+        )
+
+        valor = float(
+            nota.get("ValorTotal", 0)
+        )
+
+        ir = float(
+            nota.get("ValorIr", 0)
+        )
+
+        inss = float(
+            nota.get("ValorInss", 0)
+        )
+
+        pis_cofins_csll = float(
+            nota.get("SomaPisCofinsCsll", 0)
+        )
+
+        medico = nota.get(
+            "Medico",
+            ""
+        ).strip()
+
+        ws.cell(
+            row=linha,
+            column=1,
+            value=data
+        )
+
+        ws.cell(
+            row=linha,
+            column=2,
+            value=cliente
+        )
+
+        ws.cell(
+            row=linha,
+            column=3,
+            value=numero_nf
+        )
+
+        valores = [
+            valor,
+            ir,
+            inss,
+            pis_cofins_csll
+        ]
+
+        for coluna, valor_celula in enumerate(
+            valores,
+            start=4
+        ):
+
+            celula = ws.cell(
+                row=linha,
+                column=coluna,
+                value=valor_celula
+            )
+
+            celula.number_format = formato_moeda
+
+        # VALOR LÍQUIDO
+        celula_liquido = ws.cell(
+            row=linha,
+            column=8,
+            value=(
+                f"=D{linha}-E{linha}"
+                f"-F{linha}-G{linha}"
+            )
+        )
+
+        celula_liquido.number_format = formato_moeda
+
+        ws.cell(
+            row=linha,
+            column=9,
+            value=medico
+        )
+
+        for coluna in range(1, 10):
+
+            ws.cell(
+                row=linha,
+                column=coluna
+            ).border = borda
+
         linha += 1
 
-    linha_fim_notas = linha - 1  
-
-    # Ajuste dinâmico do tamanho das colunas principais
-    ws.column_dimensions['A'].width = 12
-    ws.column_dimensions['B'].width = 40
-    ws.column_dimensions['C'].width = 12
-    ws.column_dimensions['D'].width = 15
-    ws.column_dimensions['E'].width = 12
-    ws.column_dimensions['F'].width = 12
-    ws.column_dimensions['G'].width = 18
-    ws.column_dimensions['H'].width = 18
-    ws.column_dimensions['I'].width = 30
-
-    linha += 2  
+    linha_fim_notas = linha - 1
 
     # ========================================================
-    # BLOCO 1: DEMONSTRATIVO DE MÉDICOS
+    # LARGURA DAS COLUNAS
     # ========================================================
-    ws.cell(row=linha, column=1, value="DEMONSTRATIVO").font = Font(bold=True)
-    ws.cell(row=linha, column=2, value="IMPOSTOS").font = Font(bold=True)
-    linha += 1
-    
-    linha_inicio_demonstrativo = linha
-    
-    if not medicos_encontrados:
-        medicos_encontrados = ["DRA ALESSANDRA", "DR.ARIEL", "DRA HERICA"]
-        
-    for medico in sorted(medicos_encontrados):
-        ws.cell(row=linha, column=1, value=medico)
-        c_val = ws.cell(row=linha, column=2, value=0.00)
-        c_val.number_format = 'R$ #,##0.00'
-        linha += 1
-        
-    ws.cell(row=linha, column=1, value="TOTAL").font = Font(bold=True)
-    c_tot = ws.cell(row=linha, column=2, value=f"=SUM(B{linha_inicio_demonstrativo}:B{linha-1})")
-    c_tot.font = Font(bold=True)
-    c_tot.number_format = 'R$ #,##0.00'
 
-    linha += 3 
+    larguras = {
+        "A": 14,
+        "B": 40,
+        "C": 14,
+        "D": 16,
+        "E": 14,
+        "F": 14,
+        "G": 20,
+        "H": 18,
+        "I": 30
+    }
+
+    for coluna, largura in larguras.items():
+
+        ws.column_dimensions[coluna].width = largura
 
     # ========================================================
-    # BLOCO 2: PROTOCOLO DE IMPOSTOS COM FÓRMULAS EXCEL
+    # DEMONSTRATIVO
     # ========================================================
-    ws.cell(row=linha, column=1, value="PROTOCOLO DE IMPOSTOS ENVIADOS").font = Font(bold=True)
-    ws.cell(row=linha, column=2, value="Vencimento").font = Font(bold=True)
-    ws.cell(row=linha, column=3, value="Valor R$").font = Font(bold=True)
-    linha += 1
-    
-    ws.cell(row=linha, column=1, value="Planilha de Faturamento")
-    linha += 1
-    
-    f_iss = f"=ROUND(SUM(D2:D{linha_fim_notas}) * 0.02, 2)"
-    f_pis = f"=ROUND(MAX(0, (SUM(D2:D{linha_fim_notas}) * 0.0065) - (SUM(G2:G{linha_fim_notas}) * (0.65/4.65))), 2)"
-    f_cofins = f"=ROUND(MAX(0, (SUM(D2:D{linha_fim_notas}) * 0.03) - (SUM(G2:G{linha_fim_notas}) * (3/4.65))), 2)"
-    f_csll = f"=ROUND(MAX(0, (SUM(D2:D{linha_fim_notas}) * 0.0108) - (SUM(G2:G{linha_fim_notas}) * (1/4.65))), 2)"
-    f_irpj = f"=ROUND(MAX(0, (SUM(D2:D{linha_fim_notas}) * 0.012) - SUM(E2:E{linha_fim_notas})), 2)"
 
-    impostos = [
-        ("Guia de ISS", "10/09", f_iss),
-        ("Darf GPS", "18/09", 1507.53),
-        ("Boleto de Honorários", "25/09", 1621.00),
-        ("Darf Pis", "25/09", f_pis),
-        ("Darf Cofins", "25/09", f_cofins),
-        ("Darf CSLL", "30/09", f_csll),
-        ("Darf IRPJ", "30/09", f_irpj)
-    ]
-    
-    linha_inicio_impostos = linha
-    for nome_imp, vencimento, formula_imp in impostos:
-        ws.cell(row=linha, column=1, value=nome_imp)
-        ws.cell(row=linha, column=2, value=vencimento)
-        c_imp = ws.cell(row=linha, column=3, value=formula_imp)
-        if isinstance(formula_imp, (int, float)):
-            c_imp.number_format = 'R$ #,##0.00'
-        linha += 1
-        
-    ws.cell(row=linha, column=1, value="TOTAL").font = Font(bold=True)
-    c_tot_imp = ws.cell(row=linha, column=3, value=f"=SUM(C{linha_inicio_impostos}:C{linha-1})")
-    c_tot_imp.font = Font(bold=True)
-    c_tot_imp.number_format = 'R$ #,##0.00'
-    
     linha += 2
-    ws.cell(row=linha, column=1, value="Data do envio do Faturamento e Impostos:").font = Font(bold=True)
 
-    # Salva o arquivo final
+    ws.cell(
+        row=linha,
+        column=1,
+        value="DEMONSTRATIVO DE IMPOSTOS"
+    ).font = fonte_titulo
+
+    linha += 1
+
+    ws.cell(
+        row=linha,
+        column=1,
+        value="MÉDICO"
+    ).font = fonte_cabecalho
+
+    ws.cell(
+        row=linha,
+        column=2,
+        value="VALOR DOS IMPOSTOS"
+    ).font = fonte_cabecalho
+
+    linha += 1
+
+    linha_inicio_demonstrativo = linha
+
+    # ========================================================
+    # DEMONSTRATIVO POR MÉDICO
+    # ========================================================
+
+    totais_medicos = []
+
+    for medico in medicos:
+
+        notas_medico = [
+            nota
+            for nota in dados_notas
+            if nota.get("Medico", "").strip()
+            == medico
+        ]
+
+        # ----------------------------------------------------
+        # BASE
+        # ----------------------------------------------------
+
+        base_calculo = sum(
+            float(nota.get("ValorTotal", 0))
+            for nota in notas_medico
+        )
+
+        # ----------------------------------------------------
+        # DESTACADOS
+        # ----------------------------------------------------
+
+        iss_destacado = sum(
+            float(nota.get("ValorIss", 0))
+            for nota in notas_medico
+        )
+
+        pis_destacado = sum(
+            float(nota.get("ValorPis", 0))
+            for nota in notas_medico
+        )
+
+        cofins_destacado = sum(
+            float(nota.get("ValorCofins", 0))
+            for nota in notas_medico
+        )
+
+        csll_destacado = sum(
+            float(nota.get("ValorCsll", 0))
+            for nota in notas_medico
+        )
+
+        ir_destacado = sum(
+            float(nota.get("ValorIr", 0))
+            for nota in notas_medico
+        )
+
+        # ----------------------------------------------------
+        # CÁLCULOS
+        # ----------------------------------------------------
+
+        cofins_calculado = round(
+            base_calculo * 0.03,
+            2
+        )
+
+        cofins_a_pagar = round(
+            cofins_calculado - cofins_destacado,
+            2
+        )
+
+        pis_calculado = round(
+            base_calculo * 0.0065,
+            2
+        )
+
+        pis_a_pagar = round(
+            pis_calculado - pis_destacado,
+            2
+        )
+
+        csll_calculado = round(
+            base_calculo * 0.0108,
+            2
+        )
+
+        csll_a_pagar = round(
+            csll_calculado - csll_destacado,
+            2
+        )
+
+        ir_calculado = round(
+            base_calculo * 0.012,
+            2
+        )
+
+        ir_a_pagar = round(
+            ir_calculado - ir_destacado,
+            2
+        )
+
+        # ----------------------------------------------------
+        # TOTAL
+        # ----------------------------------------------------
+
+        total = round(
+            honorario_por_medico
+            + iss_destacado
+            + darf_gps_por_medico
+            + cofins_a_pagar
+            + pis_a_pagar
+            + csll_a_pagar
+            + ir_a_pagar,
+            2
+        )
+
+        totais_medicos.append(total)
+
+        ws.cell(
+            row=linha,
+            column=1,
+            value=medico
+        )
+
+        celula = ws.cell(
+            row=linha,
+            column=2,
+            value=total
+        )
+
+        celula.number_format = formato_moeda
+
+        linha += 1
+
+    # ========================================================
+    # TOTAL GERAL
+    # ========================================================
+
+    total_geral = round(
+        sum(totais_medicos),
+        2
+    )
+
+    ws.cell(
+        row=linha,
+        column=1,
+        value="TOTAL"
+    ).font = fonte_total
+
+    celula = ws.cell(
+        row=linha,
+        column=2,
+        value=total_geral
+    )
+
+    celula.font = fonte_total
+    celula.number_format = formato_moeda
+
+    # ========================================================
+    # ABAS INDIVIDUAIS DOS MÉDICOS
+    # ========================================================
+
+    for medico in medicos:
+
+        notas_medico = [
+            nota
+            for nota in dados_notas
+            if nota.get("Medico", "").strip()
+            == medico
+        ]
+
+        # ----------------------------------------------------
+        # NOME DA ABA
+        # ----------------------------------------------------
+
+        nome_aba = medico
+
+        caracteres_invalidos = [
+            "\\",
+            "/",
+            "*",
+            "[",
+            "]",
+            ":",
+            "?"
+        ]
+
+        for caractere in caracteres_invalidos:
+            nome_aba = nome_aba.replace(
+                caractere,
+                ""
+            )
+
+        nome_aba = nome_aba[:31]
+
+        ws_medico = wb.create_sheet(
+            title=nome_aba
+        )
+
+        # ----------------------------------------------------
+        # TÍTULO
+        # ----------------------------------------------------
+
+        ws_medico["A1"] = medico
+        ws_medico["A1"].font = fonte_titulo
+
+        ws_medico["A2"] = "FATURAMENTO - AGOSTO - 2026"
+        ws_medico["A2"].font = fonte_cabecalho
+
+        # ----------------------------------------------------
+        # CABEÇALHO FATURAMENTO
+        # ----------------------------------------------------
+
+        linha_medico = 4
+
+        cabecalhos_medico = [
+            "DATA",
+            "CLIENTE",
+            "N.FISCAL",
+            "VALOR",
+            "IR",
+            "PIS-COFINS",
+            "TAXA ADM",
+            "VALOR LÍQ."
+        ]
+
+        for coluna, cabecalho in enumerate(
+            cabecalhos_medico,
+            start=1
+        ):
+
+            celula = ws_medico.cell(
+                row=linha_medico,
+                column=coluna,
+                value=cabecalho
+            )
+
+            celula.font = fonte_cabecalho
+            celula.alignment = alinhamento_centro
+            celula.border = borda
+
+        linha_medico += 1
+
+        linha_inicio_faturamento = linha_medico
+
+        # ----------------------------------------------------
+        # NOTAS DO MÉDICO
+        # ----------------------------------------------------
+
+        for nota in notas_medico:
+
+            valor = float(
+                nota.get("ValorTotal", 0)
+            )
+
+            ir = float(
+                nota.get("ValorIr", 0)
+            )
+
+            pis = float(
+                nota.get("ValorPis", 0)
+            )
+
+            cofins = float(
+                nota.get("ValorCofins", 0)
+            )
+
+            csll = float(
+                nota.get("ValorCsll", 0)
+            )
+
+            pis_cofins = (
+                pis
+                + cofins
+                + csll
+            )
+
+            taxa_adm = 0.00
+
+            valor_liquido = (
+                valor
+                - ir
+                - pis_cofins
+                - taxa_adm
+            )
+
+            valores = [
+                nota.get("DataEmissao", ""),
+                nota.get("TomadorServico", ""),
+                nota.get("NumeroNF", ""),
+                valor,
+                ir,
+                pis_cofins,
+                taxa_adm,
+                valor_liquido
+            ]
+
+            for coluna, valor_celula in enumerate(
+                valores,
+                start=1
+            ):
+
+                celula = ws_medico.cell(
+                    row=linha_medico,
+                    column=coluna,
+                    value=valor_celula
+                )
+
+                celula.border = borda
+
+                if coluna >= 4:
+
+                    celula.number_format = formato_moeda
+
+            linha_medico += 1
+
+        linha_fim_faturamento = (
+            linha_medico - 1
+        )
+
+        # ----------------------------------------------------
+        # TOTAIS FATURAMENTO
+        # ----------------------------------------------------
+
+        total_valor = sum(
+            float(nota.get("ValorTotal", 0))
+            for nota in notas_medico
+        )
+
+        total_ir = sum(
+            float(nota.get("ValorIr", 0))
+            for nota in notas_medico
+        )
+
+        total_pis_cofins = sum(
+            float(nota.get("ValorPis", 0))
+            + float(nota.get("ValorCofins", 0))
+            + float(nota.get("ValorCsll", 0))
+            for nota in notas_medico
+        )
+
+        total_taxa_adm = 0.00
+
+        total_liquido = (
+            total_valor
+            - total_ir
+            - total_pis_cofins
+            - total_taxa_adm
+        )
+
+        valores_totais = [
+            "",
+            "TOTAL",
+            "",
+            total_valor,
+            total_ir,
+            total_pis_cofins,
+            total_taxa_adm,
+            total_liquido
+        ]
+
+        for coluna, valor_celula in enumerate(
+            valores_totais,
+            start=1
+        ):
+
+            celula = ws_medico.cell(
+                row=linha_medico,
+                column=coluna,
+                value=valor_celula
+            )
+
+            celula.font = fonte_total
+            celula.border = borda
+
+            if coluna >= 4:
+
+                celula.number_format = formato_moeda
+
+        # ----------------------------------------------------
+        # RESUMO
+        # ----------------------------------------------------
+
+        linha_medico += 3
+
+        ws_medico.cell(
+            row=linha_medico,
+            column=1,
+            value="RESUMO DO FATURAMENTO"
+        ).font = fonte_titulo
+
+        linha_medico += 1
+
+        resumo = [
+            ("Faturamento", total_valor),
+            ("IR Destacado", total_ir),
+            (
+                "PIS / COFINS / CSLL Destacado",
+                total_pis_cofins
+            ),
+            ("Valor Líquido", total_liquido)
+        ]
+
+        for nome, valor in resumo:
+
+            ws_medico.cell(
+                row=linha_medico,
+                column=1,
+                value=nome
+            )
+
+            celula = ws_medico.cell(
+                row=linha_medico,
+                column=2,
+                value=valor
+            )
+
+            celula.number_format = formato_moeda
+
+            linha_medico += 1
+
+        # ----------------------------------------------------
+        # IMPOSTOS
+        # ----------------------------------------------------
+
+        linha_medico += 2
+
+        ws_medico.cell(
+            row=linha_medico,
+            column=1,
+            value="IMPOSTOS"
+        ).font = fonte_titulo
+
+        linha_medico += 1
+
+        # ----------------------------------------------------
+        # VALORES DESTACADOS
+        # ----------------------------------------------------
+
+        total_iss_destacado = sum(
+            float(nota.get("ValorIss", 0))
+            for nota in notas_medico
+        )
+
+        total_pis_destacado = sum(
+            float(nota.get("ValorPis", 0))
+            for nota in notas_medico
+        )
+
+        total_cofins_destacado = sum(
+            float(nota.get("ValorCofins", 0))
+            for nota in notas_medico
+        )
+
+        total_csll_destacado = sum(
+            float(nota.get("ValorCsll", 0))
+            for nota in notas_medico
+        )
+
+        total_ir_destacado = sum(
+            float(nota.get("ValorIr", 0))
+            for nota in notas_medico
+        )
+
+        # ----------------------------------------------------
+        # CÁLCULOS
+        # ----------------------------------------------------
+
+        base_calculo = total_valor
+
+        cofins_calculado = round(
+            base_calculo * 0.03,
+            2
+        )
+
+        cofins_a_pagar = round(
+            cofins_calculado
+            - total_cofins_destacado,
+            2
+        )
+
+        pis_calculado = round(
+            base_calculo * 0.0065,
+            2
+        )
+
+        pis_a_pagar = round(
+            pis_calculado
+            - total_pis_destacado,
+            2
+        )
+
+        csll_calculado = round(
+            base_calculo * 0.0108,
+            2
+        )
+
+        csll_a_pagar = round(
+            csll_calculado
+            - total_csll_destacado,
+            2
+        )
+
+        ir_calculado = round(
+            base_calculo * 0.012,
+            2
+        )
+
+        ir_a_pagar = round(
+            ir_calculado
+            - total_ir_destacado,
+            2
+        )
+
+        # ----------------------------------------------------
+        # NÚMEROS DAS NOTAS
+        # ----------------------------------------------------
+
+        numero_inicial = (
+            notas_medico[0].get("NumeroNF", "")
+            if notas_medico
+            else ""
+        )
+
+        numero_final = (
+            notas_medico[-1].get("NumeroNF", "")
+            if notas_medico
+            else ""
+        )
+
+        base_formatada = (
+            f"{base_calculo:,.2f}"
+            .replace(",", "X")
+            .replace(".", ",")
+            .replace("X", ".")
+        )
+
+        # ----------------------------------------------------
+        # TABELA DE IMPOSTOS
+        # ----------------------------------------------------
+
+        cabecalhos_impostos = [
+            "COD.REC.",
+            "IMPOSTOS",
+            "VENCTO",
+            "VALOR IMPOSTO",
+            "DEDUÇÃO NF",
+            "TOTAL"
+        ]
+
+        for coluna, cabecalho in enumerate(
+            cabecalhos_impostos,
+            start=1
+        ):
+
+            celula = ws_medico.cell(
+                row=linha_medico,
+                column=coluna,
+                value=cabecalho
+            )
+
+            celula.font = fonte_cabecalho
+            celula.alignment = alinhamento_centro
+            celula.border = borda
+
+        linha_medico += 1
+
+        dados_impostos = [
+
+            [
+                "",
+                "HONORÁRIO - 08/2026",
+                "25/09/2026",
+                0,
+                0,
+                honorario_por_medico
+            ],
+
+            [
+                "04030",
+                (
+                    "ISS - SP - 2% - "
+                    f"NF.{numero_inicial} A {numero_final} - "
+                    f"Base de Calc R$ {base_formatada}"
+                ),
+                "10/09/2026",
+                total_iss_destacado,
+                0,
+                total_iss_destacado
+            ],
+
+            [
+                "",
+                "DARF GPS - 08/2026",
+                "18/09/2026",
+                0,
+                0,
+                darf_gps_por_medico
+            ],
+
+            [
+                "2172",
+                (
+                    "COFINS - 3% - "
+                    f"Base de Cálculo R$ {base_formatada}"
+                ),
+                "25/09/2026",
+                cofins_calculado,
+                total_cofins_destacado,
+                cofins_a_pagar
+            ],
+
+            [
+                "8109",
+                (
+                    "PIS - 0,65% - "
+                    f"Base de Cálculo R$ {base_formatada}"
+                ),
+                "25/09/2026",
+                pis_calculado,
+                total_pis_destacado,
+                pis_a_pagar
+            ],
+
+            [
+                "2372",
+                (
+                    "CONTRIBUIÇÃO SOCIAL - "
+                    "Alíq.Reduzida - 1,08% - "
+                    f"Base de Cálculo R$ {base_formatada}"
+                ),
+                "30/09/2026",
+                csll_calculado,
+                total_csll_destacado,
+                csll_a_pagar
+            ],
+
+            [
+                "2089",
+                (
+                    "I.R.P.J. - "
+                    "Alíq.Reduzida - 1,2% - "
+                    f"Base de Cálculo R$ {base_formatada}"
+                ),
+                "30/09/2026",
+                ir_calculado,
+                total_ir_destacado,
+                ir_a_pagar
+            ]
+        ]
+
+        for dados in dados_impostos:
+
+            for coluna, valor_celula in enumerate(
+                dados,
+                start=1
+            ):
+
+                celula = ws_medico.cell(
+                    row=linha_medico,
+                    column=coluna,
+                    value=valor_celula
+                )
+
+                celula.border = borda
+
+                if coluna >= 4:
+
+                    celula.number_format = formato_moeda
+
+            linha_medico += 1
+
+        # ----------------------------------------------------
+        # TOTAL DOS IMPOSTOS
+        # ----------------------------------------------------
+
+        total_impostos_medico = round(
+            honorario_por_medico
+            + total_iss_destacado
+            + darf_gps_por_medico
+            + cofins_a_pagar
+            + pis_a_pagar
+            + csll_a_pagar
+            + ir_a_pagar,
+            2
+        )
+
+        ws_medico.cell(
+            row=linha_medico,
+            column=1,
+            value="TOTAL"
+        ).font = fonte_total
+
+        celula = ws_medico.cell(
+            row=linha_medico,
+            column=6,
+            value=total_impostos_medico
+        )
+
+        celula.font = fonte_total
+        celula.number_format = formato_moeda
+
+        # ----------------------------------------------------
+        # LARGURA DAS COLUNAS
+        # ----------------------------------------------------
+
+        larguras_medico = {
+            "A": 14,
+            "B": 45,
+            "C": 15,
+            "D": 18,
+            "E": 18,
+            "F": 18,
+            "G": 18,
+            "H": 18
+        }
+
+        for coluna, largura in larguras_medico.items():
+
+            ws_medico.column_dimensions[
+                coluna
+            ].width = largura
+
+    # ========================================================
+    # SALVA
+    # ========================================================
+
     wb.save(caminho_saida)
+
     return caminho_saida
