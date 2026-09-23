@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 
 type Nota = {
@@ -26,17 +27,24 @@ export function UploadPanel({
 }: UploadPanelProps) {
 
   const [arquivos, setArquivos] = useState<FileList | null>(null)
+
   const [carregando, setCarregando] = useState(false)
+
   const [erro, setErro] = useState('')
 
   async function processarArquivos() {
 
     if (!arquivos || arquivos.length === 0) {
-      setErro('Selecione pelo menos um arquivo XML.')
+
+      setErro(
+        'Selecione pelo menos um arquivo.'
+      )
+
       return
     }
 
     setErro('')
+
     setCarregando(true)
 
     try {
@@ -44,7 +52,11 @@ export function UploadPanel({
       const formData = new FormData()
 
       for (const arquivo of Array.from(arquivos)) {
-        formData.append('arquivos', arquivo)
+
+        formData.append(
+          'arquivos',
+          arquivo
+        )
       }
 
       const resposta = await fetch(
@@ -55,21 +67,37 @@ export function UploadPanel({
         }
       )
 
-      if (!resposta.ok) {
-        throw new Error('Erro ao processar os arquivos XML.')
-      }
-
       const resultado = await resposta.json()
 
-      onNotasProcessadas(resultado.dados)
+      if (!resposta.ok) {
+
+        throw new Error(
+          resultado.detail ||
+          resultado.erro ||
+          'Erro ao processar os arquivos.'
+        )
+      }
+
+      onNotasProcessadas(
+        resultado.dados
+      )
 
     } catch (error) {
 
       console.error(error)
 
-      setErro(
-        'Não foi possível processar os arquivos XML.'
-      )
+      if (error instanceof Error) {
+
+        setErro(
+          error.message
+        )
+
+      } else {
+
+        setErro(
+          'Não foi possível processar os arquivos.'
+        )
+      }
 
     } finally {
 
@@ -78,10 +106,13 @@ export function UploadPanel({
     }
   }
 
+
   return (
     <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
 
-      {/* CABEÇALHO DO PAINEL */}
+      {/* =====================================================
+          CABEÇALHO
+      ===================================================== */}
 
       <div className="border-b border-slate-100 px-6 py-5">
 
@@ -98,7 +129,7 @@ export function UploadPanel({
             </h2>
 
             <p className="text-sm text-slate-500">
-              Adicione os arquivos XML para iniciar o processamento.
+              Selecione os arquivos para iniciar o processamento.
             </p>
 
           </div>
@@ -108,7 +139,9 @@ export function UploadPanel({
       </div>
 
 
-      {/* ÁREA DE UPLOAD */}
+      {/* =====================================================
+          ÁREA DE UPLOAD
+      ===================================================== */}
 
       <div className="p-6">
 
@@ -121,39 +154,139 @@ export function UploadPanel({
             📁
           </div>
 
+
           <h3 className="mt-5 text-base font-semibold text-slate-800">
-            Selecione seus arquivos XML
+            Selecione seus arquivos
           </h3>
 
+
           <p className="mt-2 max-w-md text-sm text-slate-500">
-            Você pode selecionar vários arquivos de notas fiscais
-            para processar de uma só vez.
+            GISS e Portal Nacional permitem vários arquivos.
+            Ginfes e São Paulo permitem apenas um arquivo.
           </p>
+
 
           <span className="mt-5 rounded-xl bg-blue-900 px-5 py-2.5 text-sm font-semibold text-white transition group-hover:bg-blue-800">
             Selecionar arquivos
           </span>
 
+
           <span className="mt-3 text-xs text-slate-400">
-            Formato permitido: XML
+            Formatos permitidos: XML, CSV e TXT
           </span>
+
 
           <input
             id="xml-upload"
             type="file"
-            accept=".xml"
+            accept=".xml,.csv,.txt"
             multiple
             className="hidden"
             onChange={(event) => {
-              setArquivos(event.target.files)
+
+              const selecionados =
+                event.target.files
+
               setErro('')
+
+              if (
+                !selecionados ||
+                selecionados.length === 0
+              ) {
+
+                setArquivos(null)
+
+                return
+              }
+
+
+              // =================================================
+              // VERIFICAR EXTENSÕES
+              // =================================================
+
+              const extensoesValidas = [
+                '.xml',
+                '.csv',
+                '.txt'
+              ]
+
+
+              const arquivosInvalidos =
+                Array.from(selecionados).filter(
+                  (arquivo) => {
+
+                    const nome =
+                      arquivo.name.toLowerCase()
+
+                    return !extensoesValidas.some(
+                      (extensao) =>
+                        nome.endsWith(extensao)
+                    )
+                  }
+                )
+
+
+              if (
+                arquivosInvalidos.length > 0
+              ) {
+
+                setArquivos(null)
+
+                setErro(
+                  'Existem arquivos com formato não permitido.'
+                )
+
+                return
+              }
+
+
+              // =================================================
+              // CSV/TXT NÃO PODE SER MÚLTIPLO
+              // =================================================
+
+              const possuiCsvOuTxt =
+                Array.from(selecionados).some(
+                  (arquivo) => {
+
+                    const nome =
+                      arquivo.name.toLowerCase()
+
+                    return (
+                      nome.endsWith('.csv') ||
+                      nome.endsWith('.txt')
+                    )
+                  }
+                )
+
+
+              if (
+                possuiCsvOuTxt &&
+                selecionados.length > 1
+              ) {
+
+                setArquivos(null)
+
+                setErro(
+                  'O formato São Paulo permite apenas um arquivo por vez.'
+                )
+
+                return
+              }
+
+
+              setArquivos(
+                selecionados
+              )
+
             }}
           />
 
         </label>
 
 
-        {/* ARQUIVOS SELECIONADOS */}
+        {/* =====================================================
+            ARQUIVOS SELECIONADOS
+        ===================================================== */}
 
         {arquivos && arquivos.length > 0 && (
 
@@ -173,32 +306,36 @@ export function UploadPanel({
 
               </div>
 
+
               <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
                 {arquivos.length}
               </span>
 
             </div>
 
+
             <div className="mt-3 max-h-32 overflow-y-auto">
 
-              {Array.from(arquivos).map((arquivo, indice) => (
+              {Array.from(arquivos).map(
+                (arquivo, indice) => (
 
-                <div
-                  key={indice}
-                  className="flex items-center gap-2 border-t border-slate-100 py-2 text-sm text-slate-600"
-                >
+                  <div
+                    key={indice}
+                    className="flex items-center gap-2 border-t border-slate-100 py-2 text-sm text-slate-600"
+                  >
 
-                  <span>
-                    📄
-                  </span>
+                    <span>
+                      📄
+                    </span>
 
-                  <span className="truncate">
-                    {arquivo.name}
-                  </span>
+                    <span className="truncate">
+                      {arquivo.name}
+                    </span>
 
-                </div>
+                  </div>
 
-              ))}
+                )
+              )}
 
             </div>
 
@@ -207,14 +344,19 @@ export function UploadPanel({
         )}
 
 
-        {/* BOTÃO PROCESSAR */}
+        {/* =====================================================
+            BOTÃO PROCESSAR
+        ===================================================== */}
 
         <div className="mt-5">
 
           <button
             type="button"
             onClick={processarArquivos}
-            disabled={carregando || !arquivos?.length}
+            disabled={
+              carregando ||
+              !arquivos?.length
+            }
             className="w-full rounded-xl bg-blue-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
 
@@ -228,7 +370,9 @@ export function UploadPanel({
         </div>
 
 
-        {/* ERRO */}
+        {/* =====================================================
+            ERRO
+        ===================================================== */}
 
         {erro && (
 

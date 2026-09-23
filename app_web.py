@@ -142,7 +142,6 @@ if (
         set(
             nota.get("Medico", "")
             for nota in dados_extraidos
-            if nota.get("Medico", "")
         )
     )
 

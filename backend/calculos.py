@@ -1,56 +1,136 @@
 import pandas as pd
 
 
+
 def calcular_totais(df):
+    """
+    Calcula os totais financeiros das notas fiscais.
+    """
+
     return {
-        "total_faturamento": float(df["ValorTotal"].sum()),
-        "total_iss": float(df["ValorIss"].sum()),
-        "total_inss": float(df["ValorInss"].sum()),
-        "total_pis": float(df["ValorPis"].sum()),
-        "total_cofins": float(df["ValorCofins"].sum()),
-        "total_csll": float(df["ValorCsll"].sum()),
-        "total_ir": float(df["ValorIr"].sum()),
-        "total_impostos": float(df["TotalImpostos"].sum()),
+        "total_faturamento": float(
+            df["ValorTotal"].sum()
+        ),
+
+        "total_iss": float(
+            df["ValorIss"].sum()
+        ),
+
+        "total_inss": float(
+            df["ValorInss"].sum()
+        ),
+
+        "total_pis": float(
+            df["ValorPis"].sum()
+        ),
+
+        "total_cofins": float(
+            df["ValorCofins"].sum()
+        ),
+
+        "total_csll": float(
+            df["ValorCsll"].sum()
+        ),
+
+        "total_ir": float(
+            df["ValorIr"].sum()
+        ),
+
+        "total_impostos": float(
+            df["TotalImpostos"].sum()
+        ),
     }
+
+
+
 
 
 def gerar_demonstrativo(
     dados_extraidos,
     honorario_por_medico=0,
-    darf_gps_por_medico=0
+    darf_gps_por_medico=0,
 ):
     df = pd.DataFrame(dados_extraidos)
 
     linhas = []
 
-    medicos = sorted(
-        df["Medico"].dropna().unique()
+    # ========================================================
+    # NORMALIZAR MÉDICO
+    # ========================================================
+
+    if "Medico" not in df.columns:
+        df["Medico"] = ""
+
+    df["Medico"] = (
+        df["Medico"]
+        .fillna("")
+        .astype(str)
+        .str.strip()
     )
 
-    for medico in medicos:
+    # ========================================================
+    # MÉDICOS
+    # ========================================================
 
-        if not medico:
-            continue
+    medicos = list(
+        df["Medico"].unique()
+    )
+
+    medicos.sort(
+        key=lambda x: (
+            x == "",
+            x
+        )
+    )
+
+    # ========================================================
+    # TOTAIS A PAGAR
+    # ========================================================
+
+    total_pis_a_pagar = 0.0
+    total_cofins_a_pagar = 0.0
+    total_csll_a_pagar = 0.0
+    total_ir_a_pagar = 0.0
+
+    # ========================================================
+    # PROCESSAR CADA MÉDICO
+    # ========================================================
+
+    for medico in medicos:
 
         df_medico = df[
             df["Medico"] == medico
         ]
 
         # ====================================================
-        # BASE DE CÁLCULO
+        # BASE
         # ====================================================
 
         base_calculo = df_medico["ValorTotal"].sum()
 
         # ====================================================
-        # VALORES DESTACADOS NAS NOTAS
+        # DESTACADOS
         # ====================================================
 
-        iss_destacado = df_medico["ValorIss"].sum()
-        pis_destacado = df_medico["ValorPis"].sum()
-        cofins_destacado = df_medico["ValorCofins"].sum()
-        csll_destacado = df_medico["ValorCsll"].sum()
-        ir_destacado = df_medico["ValorIr"].sum()
+        iss_destacado = (
+            df_medico["ValorIss"].sum()
+        )
+
+        pis_destacado = (
+            df_medico["ValorPis"].sum()
+        )
+
+        cofins_destacado = (
+            df_medico["ValorCofins"].sum()
+        )
+
+        csll_destacado = (
+            df_medico["ValorCsll"].sum()
+        )
+
+        ir_destacado = (
+            df_medico["ValorIr"].sum()
+        )
 
         # ====================================================
         # COFINS
@@ -61,9 +141,13 @@ def gerar_demonstrativo(
             2
         )
 
-        cofins_a_pagar = round(
-            cofins_calculado - cofins_destacado,
-            2
+        cofins_a_pagar = max(
+            round(
+                cofins_calculado
+                - cofins_destacado,
+                2
+            ),
+            0
         )
 
         # ====================================================
@@ -75,9 +159,13 @@ def gerar_demonstrativo(
             2
         )
 
-        pis_a_pagar = round(
-            pis_calculado - pis_destacado,
-            2
+        pis_a_pagar = max(
+            round(
+                pis_calculado
+                - pis_destacado,
+                2
+            ),
+            0
         )
 
         # ====================================================
@@ -89,9 +177,13 @@ def gerar_demonstrativo(
             2
         )
 
-        csll_a_pagar = round(
-            csll_calculado - csll_destacado,
-            2
+        csll_a_pagar = max(
+            round(
+                csll_calculado
+                - csll_destacado,
+                2
+            ),
+            0
         )
 
         # ====================================================
@@ -103,10 +195,23 @@ def gerar_demonstrativo(
             2
         )
 
-        ir_a_pagar = round(
-            ir_calculado - ir_destacado,
-            2
+        ir_a_pagar = max(
+            round(
+                ir_calculado
+                - ir_destacado,
+                2
+            ),
+            0
         )
+
+        # ====================================================
+        # ACUMULAR TOTAIS A PAGAR
+        # ====================================================
+
+        total_pis_a_pagar += pis_a_pagar
+        total_cofins_a_pagar += cofins_a_pagar
+        total_csll_a_pagar += csll_a_pagar
+        total_ir_a_pagar += ir_a_pagar
 
         # ====================================================
         # TOTAL DO MÉDICO
@@ -128,7 +233,7 @@ def gerar_demonstrativo(
         ])
 
     # ========================================================
-    # DATAFRAME
+    # DATAFRAME DO DEMONSTRATIVO
     # ========================================================
 
     demonstrativo = pd.DataFrame(
@@ -147,9 +252,41 @@ def gerar_demonstrativo(
         demonstrativo["Valor dos Impostos"].sum()
     )
 
-    demonstrativo.loc[len(demonstrativo)] = [
+    demonstrativo.loc[
+        len(demonstrativo)
+    ] = [
         "TOTAL",
-        round(total_demonstrativo, 2)
+        round(
+            total_demonstrativo,
+            2
+        )
     ]
 
-    return demonstrativo
+    # ========================================================
+    # TOTAIS A PAGAR
+    # ========================================================
+
+    totais_a_pagar = {
+        "pis": round(
+            total_pis_a_pagar,
+            2
+        ),
+
+        "cofins": round(
+            total_cofins_a_pagar,
+            2
+        ),
+
+        "csll": round(
+            total_csll_a_pagar,
+            2
+        ),
+
+        "ir": round(
+            total_ir_a_pagar,
+            2
+        )
+    }
+
+    return demonstrativo, totais_a_pagar
+
