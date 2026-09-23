@@ -2,19 +2,15 @@ import pandas as pd
 
 
 def calcular_totais(df):
-    """
-    Calcula os totais financeiros das notas fiscais.
-    """
-
     return {
-        "total_faturamento": df["ValorTotal"].sum(),
-        "total_iss": df["ValorIss"].sum(),
-        "total_inss": df["ValorInss"].sum(),
-        "total_pis": df["ValorPis"].sum(),
-        "total_cofins": df["ValorCofins"].sum(),
-        "total_csll": df["ValorCsll"].sum(),
-        "total_ir": df["ValorIr"].sum(),
-        "total_impostos": df["TotalImpostos"].sum(),
+        "total_faturamento": float(df["ValorTotal"].sum()),
+        "total_iss": float(df["ValorIss"].sum()),
+        "total_inss": float(df["ValorInss"].sum()),
+        "total_pis": float(df["ValorPis"].sum()),
+        "total_cofins": float(df["ValorCofins"].sum()),
+        "total_csll": float(df["ValorCsll"].sum()),
+        "total_ir": float(df["ValorIr"].sum()),
+        "total_impostos": float(df["TotalImpostos"].sum()),
     }
 
 

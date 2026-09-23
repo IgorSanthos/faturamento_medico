@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,10 +7,11 @@ import os
 
 import pandas as pd
 
-from leitor_xml import extrair_dados_xml
+from leitor_geral import ler_arquivos
 from calculos import calcular_totais, gerar_demonstrativo
 from protocolo import gerar_protocolo
 from exportar_excel import gerar_planilha_notas
+
 
 app = FastAPI(
     title="Faturamento Médico API",
@@ -32,48 +34,87 @@ app.add_middleware(
 
 @app.get("/")
 def inicio():
+
     return {
         "status": "online",
-        "sistema": "Faturamento Médico"
+        "sistema": "Faturamento Médico API"
     }
 
 
 # ============================================================
-# PROCESSAR XML
+# PROCESSAR ARQUIVOS
 # ============================================================
 
 @app.post("/notas/processar")
 async def processar_notas(
     arquivos: list[UploadFile] = File(...)
 ):
+
     dados_extraidos = []
 
-    for arquivo in arquivos:
+    caminhos_temp = []
 
-        conteudo = await arquivo.read()
+    try:
 
-        caminho_temp = None
+        # ====================================================
+        # SALVAR TODOS OS ARQUIVOS TEMPORARIAMENTE
+        # ====================================================
 
-        try:
-            with tempfile.NamedTemporaryFile(
+        for arquivo in arquivos:
+
+            conteudo = await arquivo.read()
+
+            extensao = os.path.splitext(
+                arquivo.filename
+            )[1]
+
+            if not extensao:
+
+                extensao = ".xml"
+
+            arquivo_temp = tempfile.NamedTemporaryFile(
                 delete=False,
-                suffix=".xml"
-            ) as arquivo_temp:
+                suffix=extensao
+            )
 
-                arquivo_temp.write(conteudo)
-                caminho_temp = arquivo_temp.name
+            arquivo_temp.write(
+                conteudo
+            )
 
-            notas = extrair_dados_xml(caminho_temp)
+            arquivo_temp.close()
 
-            dados_extraidos.extend(notas)
+            caminhos_temp.append(
+                arquivo_temp.name
+            )
 
-        finally:
 
-            if (
-                caminho_temp
-                and os.path.exists(caminho_temp)
-            ):
-                os.remove(caminho_temp)
+        # ====================================================
+        # PROCESSAR TODOS OS ARQUIVOS
+        # ====================================================
+
+        notas = ler_arquivos(
+            caminhos_temp
+        )
+
+        dados_extraidos.extend(
+            notas
+        )
+
+
+    finally:
+
+        # ====================================================
+        # APAGAR ARQUIVOS TEMPORÁRIOS
+        # ====================================================
+
+        for caminho in caminhos_temp:
+
+            if os.path.exists(caminho):
+
+                os.remove(
+                    caminho
+                )
+
 
     return {
         "quantidade": len(dados_extraidos),
@@ -173,7 +214,9 @@ async def calcular_faturamento(dados: dict):
     # TOTAIS
     # --------------------------------------------------------
 
-    totais = calcular_totais(df)
+    totais = calcular_totais(
+        df
+    )
 
     # --------------------------------------------------------
     # DEMONSTRATIVO
@@ -240,6 +283,7 @@ async def calcular_faturamento(dados: dict):
     )
 
     return {
+
         "totais": totais,
 
         "honorario_total": honorario_total,
@@ -258,6 +302,7 @@ async def calcular_faturamento(dados: dict):
 
         "protocolo": protocolo_json
     }
+
 
 # ============================================================
 # GERAR EXCEL
@@ -286,6 +331,7 @@ async def gerar_excel(dados: dict):
     )
 
     if not dados_extraidos:
+
         return {
             "erro": "Nenhuma nota fiscal foi informada."
         }
@@ -308,14 +354,20 @@ async def gerar_excel(dados: dict):
 
         return FileResponse(
             caminho_temp,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            media_type=(
+                "application/vnd.openxmlformats-officedocument."
+                "spreadsheetml.sheet"
+            ),
             filename="Relatorio_Faturamento.xlsx"
         )
 
     except Exception as e:
 
         if os.path.exists(caminho_temp):
-            os.remove(caminho_temp)
+
+            os.remove(
+                caminho_temp
+            )
 
         return {
             "erro": str(e)

@@ -4,27 +4,55 @@ import tkinter as tk
 from tkinter import filedialog
 
 def extrair_nome_medico(texto):
-    """Procura e extrai padrões como 'Dr. Vanessa', 'Dra. Igor', 'Drª Maria',
-    'Doutor João', etc., dentro do texto da discriminação.
-    """
+
     if not texto:
         return ''
 
-    padrao = r'\b(Drª?|Dra?|Doutora?)\.?\s+([A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑa-záàâãéèêíïóôõöúçñ]+(?:\s+[A-ZÁÀÂÃÉÈÊÍÏÓÔÕÖÚÇÑa-záàâãéèêíïóôõöúçñ]+)?)'
+    texto = ' '.join(texto.split())
 
-    match = re.search(padrao, texto, re.IGNORECASE)
-    if match:
-        titulo = match.group(1).title()
-        nome = match.group(2).title()
+    padrao = re.compile(
+        r'(?<!\w)'
+        r'(DR|DRA|DRª|DOUTOR|DOUTORA)'
+        r'\.?(?=\s|[.,:;-]|$)'
+        r'\s+',
+        re.IGNORECASE
+    )
 
-        if titulo.startswith('Dra') or titulo.startswith('Doutora'):
-            titulo_final = 'Dra.'
-        else:
-            titulo_final = 'Dr.'
+    match = padrao.search(texto)
 
-        return f'{titulo_final} {nome}'
+    if not match:
+        return ''
 
-    return ''
+    titulo = match.group(1)
+
+    restante = texto[match.end():]
+
+    fim = re.search(
+        r'\b(CRM|CPF|CNPJ|CID|RG|RQE)\b',
+        restante,
+        re.IGNORECASE
+    )
+
+    if fim:
+        nome = restante[:fim.start()]
+    else:
+        nome = restante
+
+    nome = nome.strip(' -:;,./|')
+
+    if not nome:
+        return ''
+
+    if (
+        titulo.upper().startswith('DRA')
+        or
+        titulo.upper() == 'DOUTORA'
+    ):
+        titulo_final = 'Dra.'
+    else:
+        titulo_final = 'Dr.'
+
+    return f'{titulo_final} {nome}'
 
 def selecionar_arquivos_xml():
     """Abre uma janela de diálogo para o usuário selecionar um ou múltiplos arquivos XML."""
