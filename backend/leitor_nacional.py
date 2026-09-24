@@ -241,7 +241,63 @@ def ler_arquivo_nacional(caminho_arquivo):
     valor_total = obter_valor(
         valor_elem
     )
+    
+    
+    # --------------------------------------------------------
+    # RETENÇÕES PIS / COFINS / CSLL
+    # --------------------------------------------------------
 
+    tp_ret_pis_cofins_elem = root.find(
+        './/nfse:piscofins/nfse:tpRetPisCofins',
+        ns
+    )
+
+    tp_ret_pis_cofins = obter_texto(
+        tp_ret_pis_cofins_elem
+    )
+
+    try:
+        tp_ret_pis_cofins = int(
+            tp_ret_pis_cofins
+        )
+    except (ValueError, TypeError):
+        tp_ret_pis_cofins = 0
+
+    # Base das retenções = valor total da nota
+    base_retencao = valor_total
+
+    valor_pis_retido = 0.0
+    valor_cofins_retido = 0.0
+    valor_csll_retido = 0.0
+
+    # PIS retido
+    if tp_ret_pis_cofins in [1, 3, 4, 5, 9]:
+        valor_pis_retido = round(
+            base_retencao * 0.0065,
+            2
+        )
+
+    # COFINS retido
+    if tp_ret_pis_cofins in [1, 3, 4, 6, 7]:
+        valor_cofins_retido = round(
+            base_retencao * 0.03,
+            2
+        )
+
+    # CSLL retida
+    if tp_ret_pis_cofins in [3, 7, 8, 9]:
+        valor_csll_retido = round(
+            base_retencao * 0.01,
+            2
+        )
+
+    # PCC retido
+    valor_pcc_retido = round(
+        valor_pis_retido
+        + valor_cofins_retido
+        + valor_csll_retido,
+        2
+    )
 
     iss_elem = root.find(
         './/nfse:infNFSe/nfse:valores/nfse:vISSQN',
@@ -373,40 +429,27 @@ def ler_arquivo_nacional(caminho_arquivo):
     # --------------------------------------------------------
 
     nota = {
-
         'Prestador': prestador,
-
         'DataEmissao': data_emissao,
-
         'NumeroNF': numero_nf,
-
         'TomadorServico': tomador,
-
         'ValorTotal': valor_total,
-
         'TotalImpostos': total_impostos,
-
         'ValorIr': valor_ir,
-
         'ValorInss': valor_inss,
-
         'ValorIss': valor_iss,
-
-        'SomaPisCofinsCsll':
-            soma_pis_cofins_csll,
-
+        'SomaPisCofinsCsll': soma_pis_cofins_csll,
         'ValorPis': valor_pis,
-
         'ValorCofins': valor_cofins,
-
         'ValorCsll': valor_csll,
-
+        'TipoRetPisCofins': tp_ret_pis_cofins,
+        'ValorPisRetido': valor_pis_retido,
+        'ValorCofinsRetido': valor_cofins_retido,
+        'ValorCsllRetido': valor_csll_retido,
+        'ValorPccRetido': valor_pcc_retido,
         'Medico': medico,
-
         'Municipio': municipio,
-
         'UF': uf,
-
         'Discriminacao': discriminacao,
     }
 
@@ -572,7 +615,25 @@ if __name__ == '__main__':
         print(
             f"Médico: {nota['Medico']}"
         )
+        print(
+            f"PIS RETIDO: R$ {nota['ValorPisRetido']:.2f}"
+        )
 
+        print(
+            f"COFINS RETIDO: R$ {nota['ValorCofinsRetido']:.2f}"
+        )
+
+        print(
+            f"CSLL RETIDA: R$ {nota['ValorCsllRetido']:.2f}"
+        )
+
+        print(
+            f"PCC RETIDO: R$ {nota['ValorPccRetido']:.2f}"
+        )
+
+        print(
+            f"Tipo Retenção: {nota['TipoRetPisCofins']}"
+        )
 
     print()
 

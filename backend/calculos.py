@@ -1,7 +1,6 @@
 import pandas as pd
 
 
-
 def calcular_totais(df):
     """
     Calcula os totais financeiros das notas fiscais.
@@ -21,15 +20,15 @@ def calcular_totais(df):
         ),
 
         "total_pis": float(
-            df["ValorPis"].sum()
+            df["ValorPisRetido"].sum()
         ),
 
         "total_cofins": float(
-            df["ValorCofins"].sum()
+            df["ValorCofinsRetido"].sum()
         ),
 
         "total_csll": float(
-            df["ValorCsll"].sum()
+            df["ValorCsllRetido"].sum()
         ),
 
         "total_ir": float(
@@ -40,9 +39,6 @@ def calcular_totais(df):
             df["TotalImpostos"].sum()
         ),
     }
-
-
-
 
 
 def gerar_demonstrativo(
@@ -106,26 +102,28 @@ def gerar_demonstrativo(
         # BASE
         # ====================================================
 
-        base_calculo = df_medico["ValorTotal"].sum()
+        base_calculo = df_medico[
+            "ValorTotal"
+        ].sum()
 
         # ====================================================
-        # DESTACADOS
+        # VALORES DESTACADOS / RETIDOS
         # ====================================================
 
         iss_destacado = (
             df_medico["ValorIss"].sum()
         )
 
-        pis_destacado = (
-            df_medico["ValorPis"].sum()
+        pis_retido = (
+            df_medico["ValorPisRetido"].sum()
         )
 
-        cofins_destacado = (
-            df_medico["ValorCofins"].sum()
+        cofins_retido = (
+            df_medico["ValorCofinsRetido"].sum()
         )
 
-        csll_destacado = (
-            df_medico["ValorCsll"].sum()
+        csll_retida = (
+            df_medico["ValorCsllRetido"].sum()
         )
 
         ir_destacado = (
@@ -144,7 +142,7 @@ def gerar_demonstrativo(
         cofins_a_pagar = max(
             round(
                 cofins_calculado
-                - cofins_destacado,
+                - cofins_retido,
                 2
             ),
             0
@@ -162,7 +160,7 @@ def gerar_demonstrativo(
         pis_a_pagar = max(
             round(
                 pis_calculado
-                - pis_destacado,
+                - pis_retido,
                 2
             ),
             0
@@ -180,7 +178,7 @@ def gerar_demonstrativo(
         csll_a_pagar = max(
             round(
                 csll_calculado
-                - csll_destacado,
+                - csll_retida,
                 2
             ),
             0
@@ -209,9 +207,18 @@ def gerar_demonstrativo(
         # ====================================================
 
         total_pis_a_pagar += pis_a_pagar
-        total_cofins_a_pagar += cofins_a_pagar
-        total_csll_a_pagar += csll_a_pagar
-        total_ir_a_pagar += ir_a_pagar
+
+        total_cofins_a_pagar += (
+            cofins_a_pagar
+        )
+
+        total_csll_a_pagar += (
+            csll_a_pagar
+        )
+
+        total_ir_a_pagar += (
+            ir_a_pagar
+        )
 
         # ====================================================
         # TOTAL DO MÉDICO
@@ -229,7 +236,10 @@ def gerar_demonstrativo(
 
         linhas.append([
             medico,
-            round(total, 2)
+            round(
+                total,
+                2
+            )
         ])
 
     # ========================================================
@@ -249,7 +259,9 @@ def gerar_demonstrativo(
     # ========================================================
 
     total_demonstrativo = (
-        demonstrativo["Valor dos Impostos"].sum()
+        demonstrativo[
+            "Valor dos Impostos"
+        ].sum()
     )
 
     demonstrativo.loc[
@@ -289,4 +301,3 @@ def gerar_demonstrativo(
     }
 
     return demonstrativo, totais_a_pagar
-

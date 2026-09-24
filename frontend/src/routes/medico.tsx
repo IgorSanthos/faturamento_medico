@@ -13,10 +13,11 @@ type Nota = {
   ValorIr?: number
   ValorInss?: number
   ValorIss?: number
-  SomaPisCofinsCsll?: number
-  ValorPis?: number
-  ValorCofins?: number
   ValorCsll?: number
+  ValorPisRetido?: number
+  ValorCofinsRetido?: number
+  ValorCsllRetido?: number
+  pisCofinsCsll: number
   TotalImpostos?: number
   Medico?: string
 }
@@ -39,11 +40,10 @@ function formatarReais(valor: number) {
 }
 
 function formatarData(data?: string) {
-  if (!data) {
-    return ''
-  }
+  if (!data) return ''
 
-  const partes = data.split('-')
+  const dataParte = data.split('T')[0]
+  const partes = dataParte.split('-')
 
   if (partes.length === 3) {
     return `${partes[2]}/${partes[1]}/${partes[0]}`
@@ -124,19 +124,19 @@ function MedicoPage() {
 
   const pisDestacado = notas.reduce(
     (total, nota) =>
-      total + Number(nota.ValorPis || 0),
+      total + Number(nota.ValorPisRetido || 0),
     0
   )
 
   const cofinsDestacado = notas.reduce(
     (total, nota) =>
-      total + Number(nota.ValorCofins || 0),
+      total + Number(nota.ValorCofinsRetido || 0),
     0
   )
 
   const csllDestacado = notas.reduce(
     (total, nota) =>
-      total + Number(nota.ValorCsll || 0),
+      total + Number(nota.ValorCsllRetido || 0),
     0
   )
 
@@ -246,10 +246,10 @@ function MedicoPage() {
         Number(nota.ValorIr || 0)
 
       const pis =
-        Number(nota.ValorPis || 0)
+        Number(nota.ValorPisRetido || 0)
 
       const cofins =
-        Number(nota.ValorCofins || 0)
+        Number(nota.ValorCofinsRetido || 0)
 
       const inss =
         Number(nota.ValorInss || 0)
@@ -355,13 +355,13 @@ function MedicoPage() {
 
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="max-h-[300px] overflow-y-auto overflow-x-auto">
 
             <table className="w-full text-sm">
 
               <thead className="bg-slate-50">
 
-                <tr className="border-b border-slate-200">
+                <tr className="sticky top-0 z-10 border-b border-slate-200 bg-white">
 
                   <th className="px-6 py-4 text-left font-semibold text-slate-600">
                     DATA
@@ -384,7 +384,7 @@ function MedicoPage() {
                   </th>
 
                   <th className="px-6 py-4 text-right font-semibold text-slate-600">
-                    PIS-COFINS
+                    PIS-COFINS-CSLL
                   </th>
 
                   <th className="px-6 py-4 text-right font-semibold text-slate-600">
@@ -431,12 +431,12 @@ function MedicoPage() {
 
                       const pis =
                         Number(
-                          nota.ValorPis || 0
+                          nota.ValorPisRetido || 0
                         )
 
                       const cofins =
                         Number(
-                          nota.ValorCofins || 0
+                          nota.ValorCofinsRetido || 0
                         )
 
                       const inss =
@@ -444,13 +444,20 @@ function MedicoPage() {
                           nota.ValorInss || 0
                         )
 
-                      const pisCofins =
-                        pis + cofins
+                      const csll =
+                        Number(
+                          nota.ValorCsllRetido || 0
+                        )
+
+                      const pisCofinsCsll =
+                        pis +
+                        cofins +
+                        csll
 
                       const liquido =
                         valor -
                         ir -
-                        pisCofins -
+                        pisCofinsCsll -
                         inss
 
                       return (
@@ -489,7 +496,7 @@ function MedicoPage() {
 
                           <td className="px-6 py-4 text-right text-slate-600">
                             {formatarReais(
-                              pisCofins
+                              pisCofinsCsll
                             )}
                           </td>
 
@@ -520,7 +527,7 @@ function MedicoPage() {
 
           {/* TOTAL */}
 
-          <div className="grid gap-4 border-t border-slate-100 bg-slate-50 p-6 md:grid-cols-4">
+          <div className="grid gap-4 border-t border-slate-100 bg-slate-50 p-6 md:grid-cols-6">
 
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -570,6 +577,31 @@ function MedicoPage() {
               </p>
             </div>
 
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                PCC
+              </p>
+
+              <p className="mt-1 text-lg font-bold text-slate-900">
+                {formatarReais(
+                  pisCofinsDestacado
+                  
+                )}
+              </p>
+            </div>
+
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                TOTAL LIQ
+              </p>
+
+              <p className="mt-1 text-lg font-bold text-slate-900">
+                {formatarReais(
+                  totalLiquido
+                )}
+              </p>
+            </div>
           </div>
 
         </section>
@@ -592,7 +624,7 @@ function MedicoPage() {
 
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="max-h-[350px] overflow-y-auto overflow-x-auto">
 
             <table className="w-full text-sm">
 
@@ -822,7 +854,7 @@ function MedicoPage() {
 
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                PIS + COFINS destacado
+                PIS + COFINS + CSLL RETIDOS
               </p>
 
               <p className="mt-1 text-lg font-bold text-slate-900">

@@ -8,117 +8,154 @@ def gerar_protocolo(
     total_inss=0,
     honorario_total=0,
 ):
-  """Gera o protocolo de impostos.
+    """Gera o protocolo de impostos.
 
-  Base de cálculo:
-      Total do faturamento bruto.
+    Base de cálculo: Total do faturamento bruto.
 
-  Fórmulas:
-      PIS    = faturamento * 0,65% - PIS destacado
-      COFINS = faturamento * 3,00% - COFINS destacado
-      CSLL   = faturamento * 1,08% - CSLL destacado
-      IRPJ   = faturamento * 1,20% - IR destacado
+    Fórmulas:
+        PIS    = faturamento * 0,65% - PIS retido
+        COFINS = faturamento * 3,00% - COFINS retido
+        CSLL   = faturamento * 1,08% - CSLL retida
+        IRPJ   = faturamento * 1,20% - IR retido
 
-  Regra:
-      Se o resultado de algum imposto for negativo,
-      o protocolo apresenta R$ 0,00.
-  """
+    Regra:
+        Se o resultado de algum imposto for negativo,
+        o protocolo apresenta R$ 0,00.
+    """
 
-  df = pd.DataFrame(dados_extraidos)
+    df = pd.DataFrame(dados_extraidos)
 
-  # ============================================================
-  # GARANTIR COLUNAS
-  # ============================================================
+    # ============================================================
+    # GARANTIR COLUNAS
+    # ============================================================
 
-  colunas_impostos = ["ValorPis", "ValorCofins", "ValorCsll", "ValorIr"]
+    colunas_impostos = [
+        "ValorPisRetido",
+        "ValorCofinsRetido",
+        "ValorCsllRetido",
+        "ValorIr",
+    ]
 
-  for coluna in colunas_impostos:
-    if coluna not in df.columns:
-      df[coluna] = 0
+    for coluna in colunas_impostos:
+        if coluna not in df.columns:
+            df[coluna] = 0
 
-    df[coluna] = pd.to_numeric(df[coluna], errors="coerce").fillna(0)
+        df[coluna] = pd.to_numeric(df[coluna], errors="coerce").fillna(0)
 
-  # ============================================================
-  # BASE DE CÁLCULO
-  # ============================================================
+    # ============================================================
+    # BASE DE CÁLCULO
+    # ============================================================
 
-  base_calculo = float(total_faturamento or 0)
+    base_calculo = float(total_faturamento or 0)
 
-  # ============================================================
-  # IMPOSTOS DESTACADOS NAS NOTAS
-  # ============================================================
+    # ============================================================
+    # IMPOSTOS RETIDOS NAS NOTAS
+    # ============================================================
 
-  pis_destacado = round(df["ValorPis"].sum(), 2)
-  cofins_destacado = round(df["ValorCofins"].sum(), 2)
-  csll_destacado = round(df["ValorCsll"].sum(), 2)
-  ir_destacado = round(df["ValorIr"].sum(), 2)
+    pis_retido = round(df["ValorPisRetido"].sum(), 2)
 
-  # ============================================================
-  # IMPOSTOS A PAGAR
-  # ============================================================
+    cofins_retido = round(df["ValorCofinsRetido"].sum(), 2)
 
-  pis_a_pagar = max(round((base_calculo * 0.0065) - pis_destacado, 2), 0)
+    csll_retida = round(df["ValorCsllRetido"].sum(), 2)
 
-  cofins_a_pagar = max(round((base_calculo * 0.03) - cofins_destacado, 2), 0)
+    ir_retido = round(df["ValorIr"].sum(), 2)
 
-  csll_a_pagar = max(round((base_calculo * 0.0108) - csll_destacado, 2), 0)
+    # ============================================================
+    # IMPOSTOS A PAGAR
+    # ============================================================
 
-  ir_a_pagar = max(round((base_calculo * 0.012) - ir_destacado, 2), 0)
+    pis_calculado = round(base_calculo * 0.0065, 2)
 
-  # ============================================================
-  # OUTROS VALORES
-  # ============================================================
+    pis_a_pagar = max(round(pis_calculado - pis_retido, 2), 0)
 
-  honorario = round(float(honorario_total or 0), 2)
+    # ------------------------------------------------------------
 
-  iss = round(float(total_iss or 0), 2)
+    cofins_calculado = round(base_calculo * 0.03, 2)
 
-  darf_gps = round(float(total_inss or 0), 2)
+    cofins_a_pagar = max(round(cofins_calculado - cofins_retido, 2), 0)
 
-  # ============================================================
-  # TOTAL
-  # ============================================================
+    # ------------------------------------------------------------
 
-  total = round(
-      honorario
-      + iss
-      + darf_gps
-      + cofins_a_pagar
-      + pis_a_pagar
-      + csll_a_pagar
-      + ir_a_pagar,
-      2,
-  )
+    csll_calculado = round(base_calculo * 0.0108, 2)
 
-  # ============================================================
-  # PROTOCOLO
-  # ============================================================
+    csll_a_pagar = max(round(csll_calculado - csll_retida, 2), 0)
 
-  linhas = [
-      {"Descrição": "Honorário", "Vencimento": "25/09/2026", "Valor R$": honorario},
-      {"Descrição": "ISS", "Vencimento": "10/09/2026", "Valor R$": iss},
-      {"Descrição": "DARF / GPS", "Vencimento": "18/09/2026", "Valor R$": darf_gps},
-      {
-          "Descrição": "COFINS a pagar",
-          "Vencimento": "25/09/2026",
-          "Valor R$": cofins_a_pagar,
-      },
-      {
-          "Descrição": "PIS a pagar",
-          "Vencimento": "25/09/2026",
-          "Valor R$": pis_a_pagar,
-      },
-      {
-          "Descrição": "CSLL a pagar",
-          "Vencimento": "30/09/2026",
-          "Valor R$": csll_a_pagar,
-      },
-      {
-          "Descrição": "IRPJ a pagar",
-          "Vencimento": "30/09/2026",
-          "Valor R$": ir_a_pagar,
-      },
-      {"Descrição": "TOTAL", "Vencimento": "", "Valor R$": total},
-  ]
+    # ------------------------------------------------------------
 
-  return pd.DataFrame(linhas)
+    ir_calculado = round(base_calculo * 0.012, 2)
+
+    ir_a_pagar = max(round(ir_calculado - ir_retido, 2), 0)
+
+    # ============================================================
+    # OUTROS VALORES
+    # ============================================================
+
+    honorario = round(float(honorario_total or 0), 2)
+
+    iss = round(float(total_iss or 0), 2)
+
+    darf_gps = round(float(total_inss or 0), 2)
+
+    # ============================================================
+    # TOTAL
+    # ============================================================
+
+    total = round(
+        honorario
+        + iss
+        + darf_gps
+        + cofins_a_pagar
+        + pis_a_pagar
+        + csll_a_pagar
+        + ir_a_pagar,
+        2,
+    )
+
+    # ============================================================
+    # PROTOCOLO
+    # ============================================================
+
+    linhas = [
+        {
+            "Descrição": "Honorário",
+            "Vencimento": "25/09/2026",
+            "Valor R$": honorario,
+        },
+        {
+            "Descrição": "ISS",
+            "Vencimento": "10/09/2026",
+            "Valor R$": iss,
+        },
+        {
+            "Descrição": "DARF / GPS",
+            "Vencimento": "18/09/2026",
+            "Valor R$": darf_gps,
+        },
+        {
+            "Descrição": "COFINS a pagar",
+            "Vencimento": "25/09/2026",
+            "Valor R$": cofins_a_pagar,
+        },
+        {
+            "Descrição": "PIS a pagar",
+            "Vencimento": "25/09/2026",
+            "Valor R$": pis_a_pagar,
+        },
+        {
+            "Descrição": "CSLL a pagar",
+            "Vencimento": "30/09/2026",
+            "Valor R$": csll_a_pagar,
+        },
+        {
+            "Descrição": "IRPJ a pagar",
+            "Vencimento": "30/09/2026",
+            "Valor R$": ir_a_pagar,
+        },
+        {
+            "Descrição": "TOTAL",
+            "Vencimento": "",
+            "Valor R$": total,
+        },
+    ]
+
+    return pd.DataFrame(linhas)
