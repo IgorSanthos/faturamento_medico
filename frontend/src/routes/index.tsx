@@ -4,6 +4,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AppHeader } from '../components/AppHeader'
 import { UploadPanel } from '../components/UploadPanel'
 
+
 type Nota = {
   Prestador?: string
   DataEmissao?: string
@@ -17,8 +18,13 @@ type Nota = {
   ValorPis?: number
   ValorCofins?: number
   ValorCsll?: number
+  ValorPisRetido?: number
+  ValorCofinsRetido?: number
+  ValorCsllRetido?: number
+  ValorPccRetido?: number
   TotalImpostos?: number
   Medico?: string
+  SituacaoNota?: string
 }
 
 export const Route = createFileRoute('/')({
@@ -112,6 +118,35 @@ function HomePage() {
   }
 
   // ============================================================
+// CALCULAR PCC
+// ============================================================
+
+function calcularPcc(nota: Nota) {
+  // Nota cancelada não entra no PCC
+  if (nota.SituacaoNota === 'C') {
+    return 0
+  }
+
+  // Se o backend já informou o PCC, utiliza o valor calculado.
+  if (
+    nota.ValorPccRetido !== undefined &&
+    nota.ValorPccRetido !== null
+  ) {
+    return Number(nota.ValorPccRetido)
+  }
+
+  // Regra São Paulo:
+  // se houver CSLL destacada, existe PCC de 4,65%.
+  if ((nota.ValorCsll || 0) > 0) {
+    return Number(
+      ((nota.ValorTotal || 0) * 0.0465).toFixed(2)
+    )
+  }
+
+  return 0
+}
+
+  // ============================================================
   // FORMATAR DATA
   // ============================================================
 
@@ -185,24 +220,20 @@ function HomePage() {
   const faturamento =
     calculos?.totais?.total_faturamento || 0
 
-  const iss =
-    calculos?.totais?.total_iss || 0
-
-  const inss =
-    calculos?.totais?.total_inss || 0
-
-  const pis =
-    calculos?.totais?.total_pis || 0
-
-  const cofins =
-    calculos?.totais?.total_cofins || 0
-
-  const csll =
-    calculos?.totais?.total_csll || 0
 
   const ir =
     calculos?.totais?.total_ir || 0
 
+  // PCC total das notas
+  const pisCofinsCsll = notas.reduce(
+    (total, nota) => total + calcularPcc(nota),
+    0
+  )
+
+  // Valor líquido = Faturamento - PCC - IR
+  const valorLiq =
+    faturamento - pisCofinsCsll - ir
+  
   // ============================================================
   // GERAR EXCEL
   // ============================================================
@@ -350,106 +381,73 @@ function HomePage() {
                     <thead className="sticky top-0 z-10 bg-slate-100">
 
                       <tr className="border-b border-slate-200">
-
-                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">
-                          Data
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">
-                          Cliente
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">
-                          NF
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          Valor
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          IR
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          ISS
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          INSS
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          PIS/COFINS
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          CSLL
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">
-                          Médico
-                        </th>
-
+                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">Data</th>
+                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600"> Cliente</th>
+                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">NF</th>
+                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">Valor</th>
+                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600"> IR</th>
+                        <th className="px-5 py-3 text-right font-semibold text-slate-600"> PCC-4,65% </th>
+                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600"> Valor Liq. </th>
+                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600"> Médico </th>
                       </tr>
 
                     </thead>
 
                     <tbody>
 
-                      {notas.map((nota, index) => (
+                      {notas.map((nota, index) => {
+                        const cancelada = nota.SituacaoNota === 'C'
+
+                        return (
 
                         <tr
                           key={index}
-                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                          className={
+                            cancelada
+                              ? 'border-b border-red-200 bg-red-50 text-red-700 last:border-0'
+                              : 'border-b border-slate-100 last:border-0 hover:bg-slate-50'
+                          }
                         >
-
                           <td className="whitespace-nowrap px-5 py-3 text-slate-600">
                             {formatarData(nota.DataEmissao)}
                           </td>
-
                           <td className="max-w-[240px] truncate px-5 py-3 text-slate-700">
                             {nota.TomadorServico || '-'}
                           </td>
-
                           <td className="whitespace-nowrap px-5 py-3 text-slate-600">
                             {nota.NumeroNF || '-'}
                           </td>
-
                           <td className="whitespace-nowrap px-5 py-3 text-right font-medium text-slate-800">
-                            {formatarReais(nota.ValorTotal)}
-                          </td>
-
-                          <td className="whitespace-nowrap px-5 py-3 text-right text-slate-600">
-                            {formatarReais(nota.ValorIr)}
-                          </td>
-
-                          <td className="whitespace-nowrap px-5 py-3 text-right text-slate-600">
-                            {formatarReais(nota.ValorIss)}
-                          </td>
-
-                          <td className="whitespace-nowrap px-5 py-3 text-right text-slate-600">
-                            {formatarReais(nota.ValorInss)}
-                          </td>
-
-                          <td className="whitespace-nowrap px-5 py-3 text-right text-slate-600">
                             {formatarReais(
-                              (nota.ValorPis || 0) +
-                              (nota.ValorCofins || 0)
+                              cancelada ? 0 : (nota.ValorTotal || 0)
                             )}
                           </td>
 
                           <td className="whitespace-nowrap px-5 py-3 text-right text-slate-600">
-                            {formatarReais(nota.ValorCsll)}
+                            {formatarReais(cancelada ? 0 : (nota.ValorIr || 0))}
+                          </td>
+
+                          <td className="whitespace-nowrap px-5 py-3 text-right text-slate-600">
+                            {formatarReais(calcularPcc(nota))}
+                          </td>
+
+
+                          <td className="whitespace-nowrap px-5 py-3 text-right text-slate-600">
+                            {formatarReais(
+                              cancelada
+                                ? 0
+                                : (nota.ValorTotal || 0)
+                                  - calcularPcc(nota)
+                                  - (nota.ValorIr || 0)
+                            )}
                           </td>
 
                           <td className="max-w-[220px] truncate px-5 py-3 font-medium text-slate-700">
                             {nota.Medico || '-'}
                           </td>
-
                         </tr>
-
-                      ))}
+                      )
+                    })}
 
                     </tbody>
 
@@ -504,65 +502,6 @@ function HomePage() {
 
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-                  <p className="text-sm font-medium text-slate-500">
-                    ISS
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900">
-                    {formatarReais(iss)}
-                  </p>
-
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-                  <p className="text-sm font-medium text-slate-500">
-                    INSS
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900">
-                    {formatarReais(inss)}
-                  </p>
-
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-                  <p className="text-sm font-medium text-slate-500">
-                    PIS
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900">
-                    {formatarReais(pis)}
-                  </p>
-
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-                  <p className="text-sm font-medium text-slate-500">
-                    COFINS
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900">
-                    {formatarReais(cofins)}
-                  </p>
-
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-
-                  <p className="text-sm font-medium text-slate-500">
-                    CSLL
-                  </p>
-
-                  <p className="mt-2 text-2xl font-bold text-slate-900">
-                    {formatarReais(csll)}
-                  </p>
-
-                </div>
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
 
@@ -575,6 +514,31 @@ function HomePage() {
                   </p>
 
                 </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+                  <p className="text-sm font-medium text-slate-500">
+                    PIS-COFINS <br></br>CSLL-4,65%
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {formatarReais(pisCofinsCsll)}
+                  </p>
+
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+
+                  <p className="text-sm font-medium text-slate-500">
+                    Valor LIQ
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {formatarReais(valorLiq)}
+                  </p>
+
+                </div>
+
 
               </div>
 

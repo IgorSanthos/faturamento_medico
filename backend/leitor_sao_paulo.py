@@ -16,7 +16,6 @@ def converter_valor(valor):
         0,00     -> 0.0
         vazio    -> 0.0
     """
-
     if valor is None:
         return 0.0
 
@@ -26,16 +25,10 @@ def converter_valor(valor):
         return 0.0
 
     try:
-        # Remove espaços
         valor = valor.replace(" ", "")
-
-        # Formato brasileiro:
-        # 1.234,56 -> 1234.56
         valor = valor.replace(".", "")
         valor = valor.replace(",", ".")
-
         return float(valor)
-
     except (ValueError, TypeError):
         return 0.0
 
@@ -53,10 +46,10 @@ def extrair_nome_medico(texto):
     texto = ' '.join(texto.split())
 
     # ========================================================
-    # IDENTIFICAR O TÍTULO
+    # 1. PROCURAR MÉDICO COM TÍTULO
     # ========================================================
 
-    padrao = re.compile(
+    padrao_titulo = re.compile(
         r'(?<!\w)'
         r'(DR|DRA|DRª|DOUTOR|DOUTORA)'
         r'\.?(?=\s|[.,:;-]|$)'
@@ -64,14 +57,120 @@ def extrair_nome_medico(texto):
         re.IGNORECASE
     )
 
-    match = padrao.search(texto)
+    match = padrao_titulo.search(texto)
 
-    if not match:
+    if match:
+
+        titulo = match.group(1)
+
+        restante = texto[match.end():]
+
+        # ====================================================
+        # MARCADORES QUE INDICAM O FIM DO NOME
+        # ====================================================
+
+        fim = re.search(
+            r'\b('
+            r'CRM|CPF|CNPJ|CID|RG|RQE|'
+            r'LEI\s+DA\s+TRANSPAR[ÊE]NCIA|'
+            r'TRIBUTOS?|'
+            r'VALOR\s+APROXIMADO|'
+            r'IMPOSTOS?|'
+            r'CONFORME\s+TABELA|'
+            r'IBPT'
+            r')\b',
+            restante,
+            re.IGNORECASE
+        )
+
+        if fim:
+            nome = restante[:fim.start()]
+        else:
+            nome = restante
+
+        nome = nome.strip(
+            ' -:;,./|'
+        )
+
+        nome = re.sub(
+            r'[\s|;,.:/-]+$',
+            '',
+            nome
+        )
+
+        if not nome:
+            return ''
+
+        # ====================================================
+        # PEGAR SOMENTE O PRIMEIRO NOME
+        # ====================================================
+
+        primeiro_nome = nome.split()[0]
+
+        # ====================================================
+        # NORMALIZAR TÍTULO
+        # ====================================================
+
+        if (
+            titulo.upper().startswith('DRA')
+            or
+            titulo.upper() == 'DOUTORA'
+        ):
+            titulo_final = 'Dra.'
+        else:
+            titulo_final = 'Dr.'
+
+        return f'{titulo_final} {primeiro_nome}'
+
+    # ========================================================
+    # 2. PROCURAR "PRESTADO POR"
+    # ========================================================
+
+    padrao_prestado_por = re.search(
+        r'\bprestado\s+por\s+',
+        texto,
+        re.IGNORECASE
+    )
+
+    if not padrao_prestado_por:
         return ''
 
-    titulo = match.group(1)
+    restante = texto[
+        padrao_prestado_por.end():
+    ]
 
-    restante = texto[match.end():]
+    # ========================================================
+    # VERIFICAR SE EXISTE DR / DRA
+    # ========================================================
+
+    padrao_titulo_depois = re.match(
+        r'(DR|DRA|DRª|DOUTOR|DOUTORA)'
+        r'\.?(?=\s|[.,:;-]|$)'
+        r'\s+',
+        restante,
+        re.IGNORECASE
+    )
+
+    if padrao_titulo_depois:
+
+        titulo = padrao_titulo_depois.group(1)
+
+        restante = restante[
+            padrao_titulo_depois.end():
+        ]
+
+        if (
+            titulo.upper().startswith('DRA')
+            or
+            titulo.upper() == 'DOUTORA'
+        ):
+            titulo_final = 'Dra.'
+        else:
+            titulo_final = 'Dr.'
+
+    else:
+
+        titulo_final = 'Dr.'
 
     # ========================================================
     # MARCADORES QUE INDICAM O FIM DO NOME
@@ -92,22 +191,14 @@ def extrair_nome_medico(texto):
     )
 
     if fim:
-
         nome = restante[:fim.start()]
-
     else:
-
         nome = restante
-
-    # ========================================================
-    # LIMPAR FINAL DO NOME
-    # ========================================================
 
     nome = nome.strip(
         ' -:;,./|'
     )
 
-    # Remove separadores que possam ter ficado no final
     nome = re.sub(
         r'[\s|;,.:/-]+$',
         '',
@@ -118,23 +209,106 @@ def extrair_nome_medico(texto):
         return ''
 
     # ========================================================
-    # NORMALIZAR TÍTULO
+    # PEGAR SOMENTE O PRIMEIRO NOME
     # ========================================================
 
-    if (
-        titulo.upper().startswith('DRA')
-        or
-        titulo.upper() == 'DOUTORA'
-    ):
+    primeiro_nome = nome.split()[0]
 
-        titulo_final = 'Dra.'
+    return f'{titulo_final} {primeiro_nome}'
+
+
+    # ========================================================
+    # 2. PROCURAR "PRESTADO POR"
+    # ========================================================
+
+    padrao_prestado_por = re.search(
+        r'\bprestado\s+por\s+',
+        texto,
+        re.IGNORECASE
+    )
+
+    if not padrao_prestado_por:
+        return ''
+
+    restante = texto[padrao_prestado_por.end():]
+
+    # ========================================================
+    # VERIFICAR SE DEPOIS DE "PRESTADO POR"
+    # JÁ EXISTE DR / DRA
+    # ========================================================
+
+    padrao_titulo_depois = re.match(
+        r'(DR|DRA|DRª|DOUTOR|DOUTORA)'
+        r'\.?(?=\s|[.,:;-]|$)'
+        r'\s+',
+        restante,
+        re.IGNORECASE
+    )
+
+    if padrao_titulo_depois:
+
+        titulo = padrao_titulo_depois.group(1)
+
+        restante = restante[
+            padrao_titulo_depois.end():
+        ]
+
+        if (
+            titulo.upper().startswith('DRA')
+            or
+            titulo.upper() == 'DOUTORA'
+        ):
+            titulo_final = 'Dra.'
+        else:
+            titulo_final = 'Dr.'
 
     else:
 
+        # Se "prestado por" não tiver título,
+        # considera-se médico e usa Dr.
         titulo_final = 'Dr.'
 
-    return f'{titulo_final} {nome}'
+    # ========================================================
+    # MARCADORES QUE INDICAM O FIM DO NOME
+    # ========================================================
 
+    fim = re.search(
+        r'\b('
+        r'CRM|CPF|CNPJ|CID|RG|RQE|'
+        r'LEI\s+DA\s+TRANSPAR[ÊE]NCIA|'
+        r'TRIBUTOS?|'
+        r'VALOR\s+APROXIMADO|'
+        r'IMPOSTOS?|'
+        r'CONFORME\s+TABELA|'
+        r'IBPT'
+        r')\b',
+        restante,
+        re.IGNORECASE
+    )
+
+    if fim:
+        nome = restante[:fim.start()]
+    else:
+        nome = restante
+
+    # ========================================================
+    # LIMPAR NOME
+    # ========================================================
+
+    nome = nome.strip(
+        ' -:;,./|'
+    )
+
+    nome = re.sub(
+        r'[\s|;,.:/-]+$',
+        '',
+        nome
+    )
+
+    if not nome:
+        return ''
+
+    return f'{titulo_final} {nome}'
 
 
 # ============================================================
@@ -144,27 +318,11 @@ def extrair_nome_medico(texto):
 def ler_arquivo_sao_paulo(caminho_arquivo):
     """
     Lê o arquivo de NFS-e de São Paulo.
-
-    O arquivo possui:
-        - cabeçalho separado por ;
-        - registros separados por ;
-        - valores no formato brasileiro.
     """
-
     notas_fiscais = []
 
-    with open(
-        caminho_arquivo,
-        "r",
-        encoding="latin1",
-        newline=""
-    ) as arquivo:
-
-        leitor = csv.reader(
-            arquivo,
-            delimiter=";"
-        )
-
+    with open(caminho_arquivo, "r", encoding="latin1", newline="") as arquivo:
+        leitor = csv.reader(arquivo, delimiter=";")
         linhas = list(leitor)
 
     if not linhas:
@@ -172,35 +330,20 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
 
     cabecalho = linhas[0]
 
-    # Remove BOM caso exista
     if cabecalho:
         cabecalho[0] = cabecalho[0].replace("\ufeff", "")
 
-    # Remove espaços desnecessários dos nomes das colunas
-    cabecalho = [
-        coluna.strip()
-        for coluna in cabecalho
-    ]
+    cabecalho = [coluna.strip() for coluna in cabecalho]
 
-    # Cria mapa:
-    # nome da coluna -> posição
     indices = {
         nome: indice
         for indice, nome in enumerate(cabecalho)
     }
 
     def obter_coluna(linha, nome_coluna):
-        """
-        Retorna o valor de uma coluna sem gerar erro
-        caso a coluna não exista.
-        """
-
         indice = indices.get(nome_coluna)
 
-        if indice is None:
-            return ""
-
-        if indice >= len(linha):
+        if indice is None or indice >= len(linha):
             return ""
 
         return linha[indice].strip()
@@ -210,167 +353,76 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
     # ========================================================
 
     for linha in linhas[1:]:
-
         if not linha:
             continue
 
-        # Ignora linha TOTAL
-        tipo_registro = obter_coluna(
-            linha,
-            "Tipo de Registro"
-        )
-
+        tipo_registro = obter_coluna(linha, "Tipo de Registro")
         if tipo_registro.lower() == "total":
             continue
 
-        # ====================================================
-        # DADOS PRINCIPAIS
-        # ====================================================
-
-        numero_nf = obter_coluna(
+        situacao_nota = obter_coluna(
             linha,
-            "Nº NFS-e"
-        )
+            "Situação da Nota Fiscal"
+        ).strip().upper()
 
-        data_emissao = obter_coluna(
-            linha,
-            "Data Hora NFE"
-        )
+        # Aceita somente notas autorizadas ou canceladas
+        if situacao_nota not in ("T", "C"):
+            continue
 
-        prestador = obter_coluna(
-            linha,
-            "Razão Social do Prestador"
-        )
+        numero_nf = obter_coluna(linha, "Nº NFS-e")
+        data_emissao = obter_coluna(linha, "Data Hora NFE")
+        prestador = obter_coluna(linha, "Razão Social do Prestador")
+        tomador = obter_coluna(linha, "Razão Social do Tomador")
+        cidade = obter_coluna(linha, "Cidade do Prestador")
+        uf = obter_coluna(linha, "UF do Prestador")
 
-        tomador = obter_coluna(
-            linha,
-            "Razão Social do Tomador"
-        )
+        valor_total = converter_valor(obter_coluna(linha, "Valor dos Serviços"))
+        valor_iss = converter_valor(obter_coluna(linha, "ISS devido"))
+        valor_pis = converter_valor(obter_coluna(linha, "PIS/PASEP"))
+        valor_cofins = converter_valor(obter_coluna(linha, "COFINS"))
+        valor_inss = converter_valor(obter_coluna(linha, "INSS"))
+        valor_ir = converter_valor(obter_coluna(linha, "IR"))
+        valor_csll = converter_valor(obter_coluna(linha, "CSLL"))
 
-        cidade = obter_coluna(
-            linha,
-            "Cidade do Prestador"
-        )
+        discriminacao = obter_coluna(linha, "Discriminação dos Serviços")
+        medico = extrair_nome_medico(discriminacao)
 
-        uf = obter_coluna(
-            linha,
-            "UF do Prestador"
-        )
-
-        # ====================================================
-        # VALORES
-        # ====================================================
-
-        valor_total = converter_valor(
-            obter_coluna(
-                linha,
-                "Valor dos Serviços"
-            )
-        )
-
-        valor_iss = converter_valor(
-            obter_coluna(
-                linha,
-                "ISS devido"
-            )
-        )
-
-        valor_pis = converter_valor(
-            obter_coluna(
-                linha,
-                "PIS/PASEP"
-            )
-        )
-
-        valor_cofins = converter_valor(
-            obter_coluna(
-                linha,
-                "COFINS"
-            )
-        )
-
-        valor_inss = converter_valor(
-            obter_coluna(
-                linha,
-                "INSS"
-            )
-        )
-
-        valor_ir = converter_valor(
-            obter_coluna(
-                linha,
-                "IR"
-            )
-        )
-
-        valor_csll = converter_valor(
-            obter_coluna(
-                linha,
-                "CSLL"
-            )
-        )
-
-        # ====================================================
-        # MÉDICO
-        # ====================================================
-
-        discriminacao = obter_coluna(
-            linha,
-            "Discriminação dos Serviços"
-        )
-
-        medico = extrair_nome_medico(
-            discriminacao
-        )
-
-        # ====================================================
-        # TOTAIS
-        # ====================================================
+        if valor_csll > 0:
+            valor_pcc_retido = round(valor_total * 0.0465, 2)
+        else:
+            valor_pcc_retido = 0.0
 
         soma_pis_cofins_csll = round(
-            valor_pis
-            + valor_cofins
-            + valor_csll,
+            valor_pis + valor_cofins + valor_csll,
             2
         )
 
         total_impostos = round(
-            valor_iss
-            + valor_inss
-            + valor_pis
-            + valor_cofins
-            + valor_csll
-            + valor_ir,
+            valor_iss + valor_inss + valor_pis + valor_cofins + valor_csll + valor_ir,
             2
         )
-
-        # ====================================================
-        # DICIONÁRIO PADRÃO DO SISTEMA
-        # ====================================================
 
         nota = {
             "Prestador": prestador,
             "DataEmissao": data_emissao,
             "NumeroNF": numero_nf,
             "TomadorServico": tomador,
-
             "ValorTotal": valor_total,
-
             "TotalImpostos": total_impostos,
-
             "ValorIr": valor_ir,
             "ValorInss": valor_inss,
             "ValorIss": valor_iss,
-
             "SomaPisCofinsCsll": soma_pis_cofins_csll,
-
             "ValorPis": valor_pis,
             "ValorCofins": valor_cofins,
             "ValorCsll": valor_csll,
-
+            "ValorPisRetido": valor_pis,
+            "ValorCofinsRetido": valor_cofins,
+            "ValorCsllRetido": valor_csll,
+            "ValorPccRetido": valor_pcc_retido,
+            "TipoRetPisCofins": 0,
             "Medico": medico,
-
-            # Informações adicionais
+            "SituacaoNota": situacao_nota,
             "Municipio": cidade,
             "UF": uf,
             "Discriminacao": discriminacao,
@@ -388,14 +440,8 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
 def extrair_dados_sao_paulo(caminho_arquivo):
     """
     Função principal utilizada pelo sistema.
-
-    Recebe o caminho do arquivo de São Paulo
-    e retorna uma lista de notas.
     """
-
-    return ler_arquivo_sao_paulo(
-        caminho_arquivo
-    )
+    return ler_arquivo_sao_paulo(caminho_arquivo)
 
 
 # ============================================================
@@ -403,7 +449,6 @@ def extrair_dados_sao_paulo(caminho_arquivo):
 # ============================================================
 
 if __name__ == "__main__":
-
     import tkinter as tk
     from tkinter import filedialog
 
@@ -432,73 +477,29 @@ if __name__ == "__main__":
     print("LEITOR SÃO PAULO")
     print("=" * 70)
     print()
-
     print(f"Notas encontradas: {len(notas)}")
     print()
 
     for nota in notas:
-
         print("-" * 70)
-
-        print(
-            f"NFS-e: {nota['NumeroNF']}"
-        )
-
-        print(
-            f"Data: {nota['DataEmissao']}"
-        )
-
-        print(
-            f"Prestador: {nota['Prestador']}"
-        )
-
-        print(
-            f"Tomador: {nota['TomadorServico']}"
-        )
-
-        print(
-            f"Município: {nota['Municipio']}"
-        )
-
-        print(
-            f"UF: {nota['UF']}"
-        )
-
-        print(
-            f"Valor: R$ {nota['ValorTotal']:.2f}"
-        )
-
-        print(
-            f"ISS: R$ {nota['ValorIss']:.2f}"
-        )
-
-        print(
-            f"INSS: R$ {nota['ValorInss']:.2f}"
-        )
-
-        print(
-            f"PIS: R$ {nota['ValorPis']:.2f}"
-        )
-
-        print(
-            f"COFINS: R$ {nota['ValorCofins']:.2f}"
-        )
-
-        print(
-            f"CSLL: R$ {nota['ValorCsll']:.2f}"
-        )
-
-        print(
-            f"IR: R$ {nota['ValorIr']:.2f}"
-        )
-
-        print(
-            f"Médico: {nota['Medico']}"
-        )
+        print(f"NFS-e: {nota['NumeroNF']}")
+        print(f"Data: {nota['DataEmissao']}")
+        print(f"Prestador: {nota['Prestador']}")
+        print(f"Tomador: {nota['TomadorServico']}")
+        print(f"Município: {nota['Municipio']}")
+        print(f"UF: {nota['UF']}")
+        print(f"Valor: R$ {nota['ValorTotal']:.2f}")
+        print(f"ISS: R$ {nota['ValorIss']:.2f}")
+        print(f"INSS: R$ {nota['ValorInss']:.2f}")
+        print(f"PIS: R$ {nota['ValorPis']:.2f}")
+        print(f"COFINS: R$ {nota['ValorCofins']:.2f}")
+        print(f"CSLL: R$ {nota['ValorCsll']:.2f}")
+        print(f"PCC 4,65%: R$ {nota['ValorPccRetido']:.2f}")
+        print(f"IR: R$ {nota['ValorIr']:.2f}")
+        print(f"Médico: {nota['Medico']}")
 
     print()
     print("=" * 70)
     print("TESTE FINALIZADO")
     print("=" * 70)
-
     input("\nPressione ENTER para sair...")

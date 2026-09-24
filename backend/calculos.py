@@ -1,10 +1,26 @@
+
 import pandas as pd
 
 
 def calcular_totais(df):
     """
     Calcula os totais financeiros das notas fiscais.
+
+    Notas canceladas (SituacaoNota = C) não entram nos totais.
     """
+
+    # ========================================================
+    # EXCLUIR NOTAS CANCELADAS DOS CÁLCULOS
+    # ========================================================
+
+    if "SituacaoNota" in df.columns:
+        df = df[
+            df["SituacaoNota"]
+            .fillna("")
+            .astype(str)
+            .str.upper()
+            .str.strip() != "C"
+        ].copy()
 
     return {
         "total_faturamento": float(
@@ -49,6 +65,19 @@ def gerar_demonstrativo(
     df = pd.DataFrame(dados_extraidos)
 
     linhas = []
+
+    # ========================================================
+    # EXCLUIR NOTAS CANCELADAS DOS CÁLCULOS
+    # ========================================================
+
+    if "SituacaoNota" in df.columns:
+        df = df[
+            df["SituacaoNota"]
+            .fillna("")
+            .astype(str)
+            .str.upper()
+            .str.strip() != "C"
+        ].copy()
 
     # ========================================================
     # NORMALIZAR MÉDICO
