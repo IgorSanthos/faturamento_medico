@@ -132,6 +132,7 @@ async def calcular_faturamento(
             "totais": {
                 "total_faturamento": 0,
                 "total_iss": 0,
+                "total_iss_pago": 0,
                 "total_inss": 0,
                 "total_pis": 0,
                 "total_cofins": 0,
@@ -229,7 +230,7 @@ async def calcular_faturamento(
     # DEMONSTRATIVO
     # ========================================================
 
-    demonstrativo, totais_a_pagar = (
+    demonstrativo, totais_a_pagar, detalhes_medicos = (
         gerar_demonstrativo(
             dados_extraidos,
             honorario_por_medico=honorario_por_medico,
@@ -242,17 +243,7 @@ async def calcular_faturamento(
     # ========================================================
 
     protocolo = gerar_protocolo(
-        dados_extraidos=dados_extraidos,
-        total_faturamento=totais[
-            "total_faturamento"
-        ],
-        total_iss=totais[
-            "total_iss"
-        ],
-        total_inss=totais[
-            "total_inss"
-        ],
-        honorario_total=honorario_total
+        detalhes_medicos=detalhes_medicos
     )
 
     # ========================================================
@@ -306,6 +297,12 @@ async def calcular_faturamento(
 
         "demonstrativo":
             demonstrativo_json,
+
+        "detalhes_medicos":
+            detalhes_medicos,
+
+        "totais_a_pagar":
+            totais_a_pagar,
 
         "protocolo":
             protocolo_json,

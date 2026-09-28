@@ -412,7 +412,7 @@ if st.session_state["dados_extraidos"]:
 
     st.subheader("📊 DEMONSTRATIVO DE IMPOSTOS")
 
-    demonstrativo = gerar_demonstrativo(
+    demonstrativo, totais_a_pagar, detalhes_medicos = gerar_demonstrativo(
         dados_extraidos,
         honorario_por_medico=honorario_por_medico,
         darf_gps_por_medico=darf_gps_por_medico

@@ -378,6 +378,7 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
 
         valor_total = converter_valor(obter_coluna(linha, "Valor dos Serviços"))
         valor_iss = converter_valor(obter_coluna(linha, "ISS devido"))
+        valor_iss_pago = converter_valor(obter_coluna(linha, "ISS pago"))
         valor_pis = converter_valor(obter_coluna(linha, "PIS/PASEP"))
         valor_cofins = converter_valor(obter_coluna(linha, "COFINS"))
         valor_inss = converter_valor(obter_coluna(linha, "INSS"))
@@ -412,6 +413,7 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
             "ValorIr": valor_ir,
             "ValorInss": valor_inss,
             "ValorIss": valor_iss,
+            "ValorIssPago": valor_iss_pago,
             "SomaPisCofinsCsll": soma_pis_cofins_csll,
             "ValorPis": valor_pis,
             "ValorCofins": valor_cofins,
@@ -490,6 +492,7 @@ if __name__ == "__main__":
         print(f"UF: {nota['UF']}")
         print(f"Valor: R$ {nota['ValorTotal']:.2f}")
         print(f"ISS: R$ {nota['ValorIss']:.2f}")
+        print(f"ISS pago: R$ {nota['ValorIssPago']:.2f}")
         print(f"INSS: R$ {nota['ValorInss']:.2f}")
         print(f"PIS: R$ {nota['ValorPis']:.2f}")
         print(f"COFINS: R$ {nota['ValorCofins']:.2f}")

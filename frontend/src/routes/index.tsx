@@ -286,16 +286,6 @@ function calcularPcc(nota: Nota) {
   const protocolo = calculos?.protocolo || []
 
   // ============================================================
-  // TOTAL DO PROTOCOLO
-  // ============================================================
-
-  const totalProtocolo = Number(
-    protocolo.find(
-      (item: any) => item['Descrição'] === 'TOTAL'
-    )?.['Valor R$'] || 0
-  )
-
-  // ============================================================
   // RENDER
   // ============================================================
 
@@ -657,6 +647,148 @@ function calcularPcc(nota: Nota) {
             </section>
 
             {/* =================================================
+                PROTOCOLO
+            ================================================= */}
+
+            <section>
+
+              <div className="mb-4">
+
+                <h2 className="text-xl font-semibold text-slate-900">
+                  Protocolo de Impostos Enviados - Agosto/2026
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Valores consolidados pela soma dos impostos de todos os médicos.
+                </p>
+
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+                <div className="overflow-x-auto">
+
+                  <table className="w-full min-w-[900px] text-left text-sm">
+
+                    <thead className="bg-slate-100">
+
+                      <tr className="border-b border-slate-200">
+
+                        <th className="px-6 py-4 font-semibold text-slate-600">
+                          DESCRIÇÃO
+                        </th>
+
+                        <th className="px-6 py-4 font-semibold text-slate-600">
+                          VENCIMENTO
+                        </th>
+
+                        <th className="px-6 py-4 text-right font-semibold text-slate-600">
+                          CALCULADO
+                        </th>
+
+                        <th className="px-6 py-4 text-right font-semibold text-slate-600">
+                          RETIDO
+                        </th>
+
+                        <th className="px-6 py-4 text-right font-semibold text-slate-600">
+                          A PAGAR
+                        </th>
+
+                      </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                      {protocolo
+                        .filter(
+                          (item: any) =>
+                            item['Descrição'] !== 'TOTAL'
+                        )
+                        .map(
+                          (item: any, index: number) => (
+
+                            <tr
+                              key={index}
+                              className="border-b border-slate-100"
+                            >
+
+                              <td className="px-6 py-4 text-slate-700">
+                                {item['Descrição']}
+                              </td>
+
+                              <td className="px-6 py-4 text-slate-600">
+                                {item['Vencimento'] || '-'}
+                              </td>
+
+                              <td className="px-6 py-4 text-right font-medium text-slate-800">
+                                {formatarReais(
+                                  Number(item['Calculado'] || 0)
+                                )}
+                              </td>
+
+                              <td className="px-6 py-4 text-right font-medium text-slate-800">
+                                {formatarReais(
+                                  Number(item['Retido'] || 0)
+                                )}
+                              </td>
+
+                              <td className="px-6 py-4 text-right font-semibold text-slate-900">
+                                {formatarReais(
+                                  Number(item['A pagar'] || 0)
+                                )}
+                              </td>
+
+                            </tr>
+
+                          )
+                        )}
+
+                      {/* =================================================
+                          TOTAL
+                      ================================================= */}
+
+                      <tr className="bg-slate-50">
+
+                        <td className="px-6 py-4 font-bold text-slate-900">
+                          TOTAL
+                        </td>
+
+                        <td className="px-6 py-4"></td>
+
+                        <td className="px-6 py-4 text-right font-bold text-slate-900">
+                          -
+                        </td>
+
+                        <td className="px-6 py-4 text-right font-bold text-slate-900">
+                          -
+                        </td>
+
+                        <td className="px-6 py-4 text-right font-bold text-slate-900">
+                          {formatarReais(
+                            Number(
+                              protocolo.find(
+                                (item: any) =>
+                                  item['Descrição'] === 'TOTAL'
+                              )?.['A pagar'] || 0
+                            )
+                          )}
+                        </td>
+
+                      </tr>
+
+                    </tbody>
+
+                  </table>
+
+                </div>
+
+              </div>
+
+            </section>
+
+
+            {/* =================================================
                 DEMONSTRATIVO
             ================================================= */}
 
@@ -827,109 +959,6 @@ function calcularPcc(nota: Nota) {
 
             </section>
 
-            {/* =================================================
-                PROTOCOLO
-            ================================================= */}
-
-            <section>
-
-              <div className="mb-4">
-
-                <h2 className="text-xl font-semibold text-slate-900">
-                  Protocolo de Impostos Enviados - Agosto/2026
-                </h2>
-
-                <p className="mt-1 text-sm text-slate-500">
-                  Controle dos documentos e valores enviados.
-                </p>
-
-              </div>
-
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-
-                <div className="overflow-x-auto">
-
-                  <table className="w-full min-w-[700px] text-left text-sm">
-
-                    <thead className="bg-slate-100">
-
-                      <tr className="border-b border-slate-200">
-
-                        <th className="px-6 py-4 font-semibold text-slate-600">
-                          DESCRIÇÃO
-                        </th>
-
-                        <th className="px-6 py-4 font-semibold text-slate-600">
-                          VENCIMENTO
-                        </th>
-
-                        <th className="px-6 py-4 text-right font-semibold text-slate-600">
-                          VALOR
-                        </th>
-
-                      </tr>
-
-                    </thead>
-
-                    <tbody>
-
-                      {protocolo
-                        .filter(
-                          (item: any) =>
-                            item['Descrição'] !== 'TOTAL'
-                        )
-                        .map(
-                          (item: any, index: number) => (
-
-                            <tr
-                              key={index}
-                              className="border-b border-slate-100"
-                            >
-
-                              <td className="px-6 py-4 text-slate-700">
-                                {item['Descrição']}
-                              </td>
-
-                              <td className="px-6 py-4 text-slate-600">
-                                {item['Vencimento'] || '-'}
-                              </td>
-
-                              <td className="px-6 py-4 text-right font-medium text-slate-800">
-                                {formatarReais(
-                                  Number(
-                                    item['Valor R$'] || 0
-                                  )
-                                )}
-                              </td>
-
-                            </tr>
-
-                          )
-                        )}
-
-                      <tr className="bg-slate-50">
-
-                        <td className="px-6 py-4 font-bold text-slate-900">
-                          TOTAL
-                        </td>
-
-                        <td className="px-6 py-4"></td>
-
-                        <td className="px-6 py-4 text-right font-bold text-slate-900">
-                          {formatarReais(totalProtocolo)}
-                        </td>
-
-                      </tr>
-
-                    </tbody>
-
-                  </table>
-
-                </div>
-
-              </div>
-
-            </section>
 
             {/* =====================================================
                 GERAR EXCEL
