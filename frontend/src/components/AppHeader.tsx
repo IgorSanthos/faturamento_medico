@@ -4,7 +4,7 @@ export function AppHeader() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            🏥 Faturamento Médico
+            🩺 Fatura Med
           </h1>
 
           <p className="mt-1 text-sm text-slate-500">
