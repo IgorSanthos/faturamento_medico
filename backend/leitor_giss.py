@@ -2,7 +2,6 @@ import re
 import xml.etree.ElementTree as ET
 
 
-
 # ============================================================
 # CONVERTER VALOR
 # ============================================================
@@ -35,8 +34,15 @@ def extrair_nome_medico(texto):
 
     texto = ' '.join(texto.split())
 
-    # Identifica o título como uma palavra isolada,
-    # com separação antes e depois.
+    # Identifica:
+    # Dr
+    # Dr.
+    # Dra
+    # Dra.
+    # Drª
+    # Drª.
+    # Doutor
+    # Doutora
     padrao = re.compile(
         r'(?<!\w)'
         r'(DR|DRA|DRª|DOUTOR|DOUTORA)'
@@ -73,18 +79,23 @@ def extrair_nome_medico(texto):
         return ''
 
     # Normaliza o título
-    if titulo.upper().startswith('DRA') or titulo.upper() == 'DOUTORA':
+    if (
+        titulo.upper().startswith('DRA')
+        or titulo.upper() == 'DOUTORA'
+    ):
         titulo_final = 'Dra.'
     else:
         titulo_final = 'Dr.'
 
     return f'{titulo_final} {nome}'
 
+
 # ============================================================
 # PEGAR TEXTO DE UM ELEMENTO
 # ============================================================
 
 def obter_texto(elemento, nome):
+
     if elemento is None:
         return ''
 
@@ -103,8 +114,12 @@ def obter_texto(elemento, nome):
 # ============================================================
 
 def obter_valor(elemento, nome):
+
     return converter_valor(
-        obter_texto(elemento, nome)
+        obter_texto(
+            elemento,
+            nome
+        )
     )
 
 
@@ -113,6 +128,7 @@ def obter_valor(elemento, nome):
 # ============================================================
 
 def ler_arquivo_giss(caminho):
+
     try:
 
         tree = ET.parse(caminho)
@@ -158,7 +174,10 @@ def ler_arquivo_giss(caminho):
         # DADOS PRINCIPAIS
         # ====================================================
 
-        numero = obter_texto(inf_nfse, 'Numero')
+        numero = obter_texto(
+            inf_nfse,
+            'Numero'
+        )
 
         data_emissao = obter_texto(
             inf_nfse,
@@ -226,21 +245,25 @@ def ler_arquivo_giss(caminho):
                 declaracao = elemento
                 break
 
+        if declaracao is None:
+            return []
+
         # ====================================================
         # SERVICO
         # ====================================================
 
         servico = None
 
-        if declaracao is not None:
+        for elemento in declaracao.iter():
 
-            for elemento in declaracao.iter():
+            nome = elemento.tag.split('}')[-1]
 
-                nome = elemento.tag.split('}')[-1]
+            if nome == 'Servico':
+                servico = elemento
+                break
 
-                if nome == 'Servico':
-                    servico = elemento
-                    break
+        if servico is None:
+            return []
 
         # ====================================================
         # VALORES
@@ -248,18 +271,19 @@ def ler_arquivo_giss(caminho):
 
         valores = None
 
-        if servico is not None:
+        for elemento in servico.iter():
 
-            for elemento in servico.iter():
+            nome = elemento.tag.split('}')[-1]
 
-                nome = elemento.tag.split('}')[-1]
+            if nome == 'Valores':
+                valores = elemento
+                break
 
-                if nome == 'Valores':
-                    valores = elemento
-                    break
+        if valores is None:
+            return []
 
         # ====================================================
-        # VALORES DOS IMPOSTOS
+        # VALOR TOTAL
         # ====================================================
 
         valor_total = obter_valor(
@@ -267,20 +291,64 @@ def ler_arquivo_giss(caminho):
             'ValorServicos'
         )
 
+        # ====================================================
+        # ISS
+        # ====================================================
+
         valor_iss = obter_valor(
             valores,
             'ValorIss'
         )
+
+        # ====================================================
+        # ISS RETIDO
+        #
+        # GISS:
+        #
+        # IssRetido = 1
+        # → ISS retido
+        #
+        # IssRetido = 2
+        # → ISS não retido
+        #
+        # O campo ValorIssPago representa o valor já
+        # considerado como pago/recolhido pelo sistema.
+        # ====================================================
+
+        iss_retido = obter_texto(
+            servico,
+            'IssRetido'
+        )
+
+        if iss_retido == '1':
+
+            valor_iss_pago = 0.0
+
+        else:
+
+            valor_iss_pago = valor_iss
+
+        # ====================================================
+        # INSS
+        # ====================================================
 
         valor_inss = obter_valor(
             valores,
             'ValorInss'
         )
 
+        # ====================================================
+        # IR
+        # ====================================================
+
         valor_ir = obter_valor(
             valores,
             'ValorIr'
         )
+
+        # ====================================================
+        # CSLL
+        # ====================================================
 
         valor_csll = obter_valor(
             valores,
@@ -289,6 +357,13 @@ def ler_arquivo_giss(caminho):
 
         # ====================================================
         # PIS / COFINS
+        #
+        # No GISS deste layout:
+        #
+        # vPis
+        # vCofins
+        #
+        # representam PIS/COFINS normais da nota.
         # ====================================================
 
         valor_pis = obter_valor(
@@ -301,11 +376,70 @@ def ler_arquivo_giss(caminho):
             'vCofins'
         )
 
+        # ====================================================
+        # IDENTIFICAR PCC RETIDO
+        #
+        # Regra informada para o layout GISS:
+        #
+        # Se ValorCsll > 0
+        # E ValorPis = 0
+        # E ValorCofins = 0
+        #
+        # então ValorCsll representa o PCC retido total:
+        #
+        # PIS     = 0,65%
+        # COFINS  = 3,00%
+        # CSLL    = 1,00%
+        #
+        # Total   = 4,65%
+        # ====================================================
+
+        valor_pis_retido = 0.0
+        valor_cofins_retido = 0.0
+        valor_csll_retido = 0.0
+        valor_pcc_retido = 0.0
+
+        if (
+            valor_csll > 0
+            and valor_pis == 0
+            and valor_cofins == 0
+        ):
+
+            valor_pcc_retido = round(
+                valor_csll,
+                2
+            )
+
+            valor_pis_retido = round(
+                valor_pcc_retido * 0.65 / 4.65,
+                2
+            )
+
+            valor_cofins_retido = round(
+                valor_pcc_retido * 3.00 / 4.65,
+                2
+            )
+
+            valor_csll_retido = round(
+                valor_pcc_retido * 1.00 / 4.65,
+                2
+            )
+
+        # ====================================================
+        # SOMA PIS + COFINS + CSLL
+        #
+        # Mantém os valores originais informados no XML.
+        # ====================================================
+
         soma_pis_cofins_csll = (
             valor_pis
             + valor_cofins
             + valor_csll
         )
+
+        # ====================================================
+        # TOTAL DE IMPOSTOS DO XML
+        # ====================================================
 
         total_impostos = (
             valor_iss
@@ -343,23 +477,84 @@ def ler_arquivo_giss(caminho):
         # ====================================================
 
         nota = {
-            'Prestador': nome_prestador,
-            'DataEmissao': data_emissao,
-            'NumeroNF': numero,
-            'TomadorServico': nome_tomador,
-            'ValorTotal': valor_total,
-            'TotalImpostos': total_impostos,
-            'ValorIr': valor_ir,
-            'ValorInss': valor_inss,
-            'ValorIss': valor_iss,
-            'SomaPisCofinsCsll': soma_pis_cofins_csll,
-            'ValorPis': valor_pis,
-            'ValorCofins': valor_cofins,
-            'ValorCsll': valor_csll,
-            'Medico': medico,
-            'Municipio': municipio,
-            'UF': uf,
-            'Discriminacao': discriminacao
+
+            'Prestador':
+                nome_prestador,
+
+            'DataEmissao':
+                data_emissao,
+
+            'NumeroNF':
+                numero,
+
+            'TomadorServico':
+                nome_tomador,
+
+            'ValorTotal':
+                valor_total,
+
+            'TotalImpostos':
+                total_impostos,
+
+            'ValorIr':
+                valor_ir,
+
+            'ValorInss':
+                valor_inss,
+
+            'ValorIss':
+                valor_iss,
+
+            'ValorIssPago':
+                valor_iss_pago,
+
+            # =================================================
+            # VALORES NORMAIS DA NOTA
+            # =================================================
+
+            'ValorPis':
+                valor_pis,
+
+            'ValorCofins':
+                valor_cofins,
+
+            'ValorCsll':
+                valor_csll,
+
+            # =================================================
+            # VALORES RETIDOS
+            # =================================================
+
+            'ValorPisRetido':
+                valor_pis_retido,
+
+            'ValorCofinsRetido':
+                valor_cofins_retido,
+
+            'ValorCsllRetido':
+                valor_csll_retido,
+
+            'ValorPccRetido':
+                valor_pcc_retido,
+
+            # =================================================
+            # OUTROS DADOS
+            # =================================================
+
+            'SomaPisCofinsCsll':
+                soma_pis_cofins_csll,
+
+            'Medico':
+                medico,
+
+            'Municipio':
+                municipio,
+
+            'UF':
+                uf,
+
+            'Discriminacao':
+                discriminacao
         }
 
         notas.append(nota)
@@ -381,6 +576,7 @@ def ler_arquivo_giss(caminho):
 # ============================================================
 
 def ler_todos_os_giss(arquivos):
+
     todas_as_notas = []
 
     for arquivo in arquivos:

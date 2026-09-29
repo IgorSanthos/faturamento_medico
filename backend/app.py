@@ -108,6 +108,17 @@ async def calcular_faturamento(
         "dados",
         []
     )
+    print("========== DEBUG FATURAMENTO ==========")
+    print("Quantidade:", len(dados_extraidos))
+
+    if dados_extraidos:
+        print("COLUNAS:")
+        print(list(dados_extraidos[0].keys()))
+
+        print("PRIMEIRA NOTA:")
+        print(dados_extraidos[0])
+
+    print("========================================")
 
     honorario_total = float(
         dados.get(
