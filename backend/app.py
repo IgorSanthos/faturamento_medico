@@ -13,7 +13,7 @@ app = FastAPI(title="Faturamento Médico API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173","https://SEU-FRONTEND.onrender.com",],
+    allow_origins=["http://localhost:5173","https://faturamento-medico-tflz.onrender.com",],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
