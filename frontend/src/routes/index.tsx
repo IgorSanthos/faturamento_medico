@@ -134,7 +134,7 @@ function HomePage() {
 
     try {
       const resposta = await fetch(
-        'http://127.0.0.1:8000/faturamento/calcular',
+        'https://faturamento-medico-backend.onrender.com/faturamento/calcular',
         {
           method: 'POST',
           headers: {
@@ -200,7 +200,7 @@ function HomePage() {
   async function gerarExcel() {
     try {
       const resposta = await fetch(
-        'http://127.0.0.1:8000/faturamento/excel',
+        'https://faturamento-medico-backend.onrender.com/faturamento/excel',
         {
           method: 'POST',
           headers: {

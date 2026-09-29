@@ -60,7 +60,7 @@ export function UploadPanel({
       }
 
       const resposta = await fetch(
-        'http://127.0.0.1:8000/notas/processar',
+        'https://faturamento-medico-backend.onrender.com/notas/processar',
         {
           method: 'POST',
           body: formData,
