@@ -1,7 +1,7 @@
 import re
 import xml.etree.ElementTree as ET
-import tkinter as tk
-from tkinter import filedialog
+import re
+import xml.etree.ElementTree as ET
 
 def extrair_nome_medico(texto):
 
@@ -54,18 +54,6 @@ def extrair_nome_medico(texto):
 
     return f'{titulo_final} {nome}'
 
-def selecionar_arquivos_xml():
-    """Abre uma janela de diálogo para o usuário selecionar um ou múltiplos arquivos XML."""
-    root = tk.Tk()
-    root.withdraw()  # Oculta a janela principal do Tkinter
-    root.attributes('-topmost', True)  # Traz a janela para a frente
-
-    caminhos_arquivos = filedialog.askopenfilenames(
-
-    )
-    
-    root.destroy()
-    return caminhos_arquivos
 
 def extrair_dados_xml(caminho_arquivo):
     """Lê um arquivo XML de NFS-e (Ginfes/WSDL) e extrai todas as notas dentro dele."""
@@ -147,16 +135,3 @@ def extrair_dados_xml(caminho_arquivo):
 
     return notas_fiscais
 
-def ler_todos_os_xmls():
-    """Abre o seletor de arquivos e retorna uma lista unificada com os dicionários de todas as notas."""
-    caminhos_arquivos = selecionar_arquivos_xml()
-    
-    if not caminhos_arquivos:
-        return []
-
-    todas_as_notas = []
-    for caminho in caminhos_arquivos:
-        notas = extrair_dados_xml(caminho)
-        todas_as_notas.extend(notas)
-
-    return todas_as_notas
