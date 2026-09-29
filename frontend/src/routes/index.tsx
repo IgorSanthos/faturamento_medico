@@ -170,18 +170,6 @@ function HomePage() {
     }
   }
 
-
-  /*
-   * RECALCULA DEPOIS QUE O USUÁRIO TERMINOU DE EDITAR
-   */
-  function recalcularMedico() {
-    calcularFaturamento(
-      notas,
-      honorarioTotal,
-      darfGpsTotal
-    )
-  }
-
   function reiniciarFaturamento() {
     sessionStorage.removeItem('notas_faturamento')
     sessionStorage.removeItem('calculos_faturamento')
