@@ -299,6 +299,10 @@ def ler_arquivo_nacional(caminho_arquivo):
         2
     )
 
+    # --------------------------------------------------------
+    # ISS
+    # --------------------------------------------------------
+
     iss_elem = root.find(
         './/nfse:infNFSe/nfse:valores/nfse:vISSQN',
         ns
@@ -307,6 +311,29 @@ def ler_arquivo_nacional(caminho_arquivo):
     valor_iss = obter_valor(
         iss_elem
     )
+
+    # Tipo de retenção do ISSQN
+    tp_ret_issqn_elem = root.find(
+        './/nfse:infDPS/nfse:valores/nfse:trib/tribMun/tpRetISSQN',
+        ns
+    )
+
+    tp_ret_issqn = obter_texto(
+        tp_ret_issqn_elem
+    )
+
+    try:
+        tp_ret_issqn = int(tp_ret_issqn)
+    except (ValueError, TypeError):
+        tp_ret_issqn = 0
+
+    # ISS pago/recolhido
+    if tp_ret_issqn == 1:
+        # ISS retido pelo tomador
+        valor_iss_pago = valor_iss
+    else:
+        # ISS não retido pelo tomador
+        valor_iss_pago = 0.0
 
 
     # --------------------------------------------------------
@@ -438,6 +465,7 @@ def ler_arquivo_nacional(caminho_arquivo):
         'ValorIr': valor_ir,
         'ValorInss': valor_inss,
         'ValorIss': valor_iss,
+        'ValorIssPago': valor_iss_pago,
         'SomaPisCofinsCsll': soma_pis_cofins_csll,
         'ValorPis': valor_pis,
         'ValorCofins': valor_cofins,

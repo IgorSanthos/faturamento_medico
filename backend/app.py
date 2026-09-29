@@ -177,26 +177,55 @@ async def calcular_faturamento(
     # ========================================================
     # QUANTIDADE DE MÉDICOS
     #
-    # Somente médicos com notas válidas entram na divisão.
+    # Médicos separados por "/" contam individualmente.
+    # Exemplo:
+    # Dr. Ariel/Dr. Herica = 2 médicos
     # ========================================================
 
+    medicos_set = set()
+
+    for nota in dados_extraidos:
+
+        if str(
+            nota.get(
+                "SituacaoNota",
+                ""
+            )
+        ).upper().strip() == "C":
+            continue
+
+        medico = str(
+            nota.get(
+                "Medico",
+                ""
+            )
+        ).strip()
+
+        if not medico:
+            continue
+
+        if "/" in medico:
+
+            nomes = [
+                nome.strip()
+                for nome in medico.split("/")
+                if nome.strip()
+            ]
+
+            medicos_set.update(nomes)
+
+        else:
+
+            medicos_set.add(medico)
+
+
     medicos = sorted(
-        set(
-            nota.get("Medico", "")
-            for nota in dados_extraidos
-            if str(
-                nota.get(
-                    "SituacaoNota",
-                    ""
-                )
-            ).upper().strip() != "C"
-        )
+        medicos_set
     )
 
     quantidade_medicos = len(
         medicos
     )
-
     # ========================================================
     # VALORES POR MÉDICO
     # ========================================================

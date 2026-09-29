@@ -67,6 +67,59 @@ def gerar_demonstrativo(
     darf_gps_por_medico=0,
 ):
     df = pd.DataFrame(dados_extraidos)
+    # ========================================================
+    # DIVIDIR NOTAS ENTRE DOIS MÉDICOS
+    # ========================================================
+
+    novas_linhas = []
+
+    for _, linha in df.iterrows():
+
+        medico = str(linha.get("Medico", "") or "").strip()
+
+        if "/" in medico:
+
+            medicos_divididos = [
+                nome.strip()
+                for nome in medico.split("/")
+                if nome.strip()
+            ]
+
+            if len(medicos_divididos) == 2:
+
+                for nome_medico in medicos_divididos:
+
+                    nova_linha = linha.copy()
+
+                    nova_linha["Medico"] = nome_medico
+
+                    # Dividir os valores da nota por 2
+                    for coluna in [
+                        "ValorTotal",
+                        "ValorIss",
+                        "ValorIssPago",
+                        "ValorInss",
+                        "ValorIr",
+                        "ValorPccRetido",
+                        "ValorPisRetido",
+                        "ValorCofinsRetido",
+                        "ValorCsllRetido",
+                    ]:
+
+                        if coluna in nova_linha.index:
+
+                            nova_linha[coluna] = (
+                                float(nova_linha[coluna] or 0) / 2
+                            )
+
+                    novas_linhas.append(nova_linha)
+
+                continue
+
+        novas_linhas.append(linha)
+
+
+    df = pd.DataFrame(novas_linhas)
 
     linhas = []
     detalhes_medicos = []
@@ -216,7 +269,6 @@ def gerar_demonstrativo(
 
         total_impostos = round(
             honorario
-            + iss_a_pagar
             + iss_a_pagar
             + darf_gps
             + cofins_a_pagar

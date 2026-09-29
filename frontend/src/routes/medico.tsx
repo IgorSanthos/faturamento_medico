@@ -19,6 +19,7 @@ type Nota = {
   ValorCsllRetido?: number
   ValorPccRetido?: number
   SituacaoNota?: string
+  ValorIssPago?: number
   TotalImpostos?: number
   Medico?: string
 }
@@ -109,12 +110,55 @@ function MedicoPage() {
     try {
       const dados: Nota[] = JSON.parse(dadosSalvos)
 
-      const notasDoMedico = dados.filter(
-        (nota) =>
-          nota.Medico === medico &&
+      const notasProcessadas = []
+
+      for (const nota of dados) {
+        if (
           String(nota.SituacaoNota || '')
             .toUpperCase()
-            .trim() !== 'C'
+            .trim() === 'C'
+        ) {
+          continue
+        }
+
+        const nomeMedico = String(nota.Medico || '').trim()
+
+        if (nomeMedico.includes('/')) {
+          const medicosDivididos = nomeMedico
+            .split('/')
+            .map((nome) => nome.trim())
+            .filter(Boolean)
+
+          if (medicosDivididos.length === 2) {
+            for (const nome of medicosDivididos) {
+              const novaNota = {
+                ...nota,
+                Medico: nome,
+                ValorTotal: Number(nota.ValorTotal || 0) / 2,
+                ValorIr: Number(nota.ValorIr || 0) / 2,
+                ValorPccRetido: Number(nota.ValorPccRetido || 0) / 2,
+                ValorIss: Number(nota.ValorIss || 0) / 2,
+                ValorIssPago: Number(nota.ValorIssPago || 0) / 2,
+                ValorInss: Number(nota.ValorInss || 0) / 2,
+                ValorPisRetido: Number(nota.ValorPisRetido || 0) / 2,
+                ValorCofinsRetido: Number(nota.ValorCofinsRetido || 0) / 2,
+                ValorCsllRetido: Number(nota.ValorCsllRetido || 0) / 2,
+              }
+
+              notasProcessadas.push(novaNota)
+            }
+
+            continue
+          }
+        }
+
+        notasProcessadas.push(nota)
+      }
+
+      const notasDoMedico = notasProcessadas.filter(
+        (nota) =>
+          String(nota.Medico || '').trim() ===
+          String(medico || '').trim()
       )
 
       setNotas(notasDoMedico)
