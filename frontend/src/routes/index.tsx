@@ -390,9 +390,10 @@ function HomePage() {
                         return (
                           <tr
                             key={index}
+                            title={cancelada ? 'Nota fiscal cancelada' : undefined}
                             className={
                               cancelada
-                                ? 'border-b border-red-200 bg-red-50 text-red-700 last:border-0'
+                                ? 'border-b border-red-200 bg-red-50 text-red-700 last:border-0 cursor-help'
                                 : 'border-b border-slate-100 last:border-0 hover:bg-slate-50'
                             }
                           >
