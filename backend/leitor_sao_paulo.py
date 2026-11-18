@@ -279,6 +279,18 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
         data_emissao = obter_coluna(linha, "Data Hora NFE")
         prestador = obter_coluna(linha, "Razão Social do Prestador")
         tomador = obter_coluna(linha, "Razão Social do Tomador")
+
+        # ====================================================
+        # INTERMEDIÁRIO NO LUGAR DO TOMADOR
+        #
+        # Quando a nota tem intermediário (ex.: operadora de saúde),
+        # os dados dele passam a ser o tomador da nota.
+        # ====================================================
+        intermediario = obter_coluna(linha, "Razão Social do Intermediário")
+        tomador_original = tomador
+
+        if intermediario:
+            tomador = intermediario
         cidade = obter_coluna(linha, "Cidade do Prestador")
         uf = obter_coluna(linha, "UF do Prestador")
 
@@ -314,6 +326,7 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
             "DataEmissao": data_emissao,
             "NumeroNF": numero_nf,
             "TomadorServico": tomador,
+            "TomadorOriginal": tomador_original,
             "ValorTotal": valor_total,
             "TotalImpostos": total_impostos,
             "ValorIr": valor_ir,
