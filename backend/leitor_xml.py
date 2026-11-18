@@ -106,6 +106,72 @@ def extrair_dados_xml(caminho_arquivo):
         v_cofins = obterm_valor_tributo(valores_elem, ['ValorCofins', 'vCofins', 'Cofins'])
         v_csll = obterm_valor_tributo(valores_elem, ['ValorCsll', 'vCsll', 'Csll'])
 
+        # ====================================================
+        # SITUAÇÃO DA NOTA (CANCELADA)
+        #
+        # No Ginfes a nota cancelada traz o bloco
+        # <nfseCancelamento> com data e motivo.
+        # SituacaoNota: "C" = cancelada | "T" = normal
+        # (mesmo padrão do CSV de São Paulo)
+        # ====================================================
+        situacao_nota = 'T'
+        data_cancelamento = ''
+        motivo_cancelamento = ''
+
+        for sub in nfse.iter():
+            if sub.tag.split('}')[-1] == 'nfseCancelamento':
+                situacao_nota = 'C'
+                for filho in sub:
+                    nome_filho = filho.tag.split('}')[-1]
+                    if nome_filho == 'dtMotivo':
+                        data_cancelamento = (filho.text or '').strip()
+                    elif nome_filho == 'dsMotivo':
+                        motivo_cancelamento = (filho.text or '').strip()
+                break
+
+        # ====================================================
+        # ISS PAGO
+        #
+        # Mesma regra do leitor GISS:
+        # IssRetido = 1 -> ISS retido pelo tomador -> ValorIssPago = 0
+        # demais casos  -> ValorIssPago = ValorIss
+        # ====================================================
+        iss_retido = ''
+        if valores_elem is not None:
+            for sub in valores_elem.iter():
+                if sub.tag.split('}')[-1] == 'IssRetido':
+                    iss_retido = (sub.text or '').strip()
+                    break
+
+        valor_iss_pago = 0.0 if iss_retido == '1' else valor_iss
+
+        # ====================================================
+        # PCC RETIDO (PIS + COFINS + CSLL)
+        #
+        # tpRetPisCofins = 3 -> PIS, COFINS e CSLL retidos na fonte.
+        # Os valores vPis, vCofins e ValorCsll da nota são os retidos.
+        # Demais códigos (0, 2...) -> nada retido.
+        # ====================================================
+        tp_ret = ''
+        if valores_elem is not None:
+            for sub in valores_elem.iter():
+                if sub.tag.split('}')[-1] == 'tpRetPisCofins':
+                    tp_ret = (sub.text or '').strip()
+                    break
+
+        if tp_ret == '3':
+            valor_pis_retido = round(v_pis, 2)
+            valor_cofins_retido = round(v_cofins, 2)
+            valor_csll_retido = round(v_csll, 2)
+        else:
+            valor_pis_retido = 0.0
+            valor_cofins_retido = 0.0
+            valor_csll_retido = 0.0
+
+        valor_pcc_retido = round(
+            valor_pis_retido + valor_cofins_retido + valor_csll_retido, 2
+        )
+
         # TOTAIS
         soma_pis_cofins_csll = round(v_pis + v_cofins + v_csll, 2)
         total_impostos = round(valor_iss + valor_inss + v_pis + v_cofins + v_csll + valor_ir, 2)
@@ -124,14 +190,21 @@ def extrair_dados_xml(caminho_arquivo):
             'ValorIr': valor_ir,
             'ValorInss': valor_inss,
             'ValorIss': valor_iss,
+            'ValorIssPago': valor_iss_pago,
             'SomaPisCofinsCsll': soma_pis_cofins_csll,
             'ValorPis': v_pis,
             'ValorCofins': v_cofins,
             'ValorCsll': v_csll,
+            'ValorPisRetido': valor_pis_retido,
+            'ValorCofinsRetido': valor_cofins_retido,
+            'ValorCsllRetido': valor_csll_retido,
+            'ValorPccRetido': valor_pcc_retido,
+            'SituacaoNota': situacao_nota,
+            'DataCancelamento': data_cancelamento,
+            'MotivoCancelamento': motivo_cancelamento,
             'Medico': medico,
         }
 
         notas_fiscais.append(nota)
 
     return notas_fiscais
-

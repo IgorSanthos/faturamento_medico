@@ -2,12 +2,49 @@
 import pandas as pd
 
 
+# ============================================================
+# COLUNAS QUE O CÁLCULO USA
+# Se o leitor de notas (GISS, Ginfes, CSV) não gerar alguma delas,
+# ela é criada com 0 em vez de derrubar o programa com KeyError.
+# ============================================================
+
+COLUNAS_NUMERICAS = [
+    "ValorTotal",
+    "ValorIss",
+    "ValorIssPago",
+    "ValorInss",
+    "ValorIr",
+    "ValorPccRetido",
+    "ValorPisRetido",
+    "ValorCofinsRetido",
+    "ValorCsllRetido",
+    "TotalImpostos",
+]
+
+
+def preparar_df(df):
+    """Garante que todas as colunas usadas nos cálculos existam e sejam numéricas."""
+    df = df.copy()
+
+    for coluna in COLUNAS_NUMERICAS:
+        if coluna not in df.columns:
+            df[coluna] = 0.0
+        df[coluna] = pd.to_numeric(df[coluna], errors="coerce").fillna(0.0)
+
+    if "SituacaoNota" not in df.columns:
+        df["SituacaoNota"] = ""
+
+    return df
+
+
 def calcular_totais(df):
     """
     Calcula os totais financeiros das notas fiscais.
 
     Notas canceladas (SituacaoNota = C) não entram nos totais.
     """
+
+    df = preparar_df(df)
 
     # ========================================================
     # EXCLUIR NOTAS CANCELADAS DOS CÁLCULOS
@@ -66,7 +103,7 @@ def gerar_demonstrativo(
     honorario_por_medico=0,
     darf_gps_por_medico=0,
 ):
-    df = pd.DataFrame(dados_extraidos)
+    df = preparar_df(pd.DataFrame(dados_extraidos))
     # ========================================================
     # DIVIDIR NOTAS ENTRE DOIS MÉDICOS
     # ========================================================
@@ -119,7 +156,7 @@ def gerar_demonstrativo(
         novas_linhas.append(linha)
 
 
-    df = pd.DataFrame(novas_linhas)
+    df = preparar_df(pd.DataFrame(novas_linhas))
 
     linhas = []
     detalhes_medicos = []
