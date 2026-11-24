@@ -265,6 +265,7 @@ def extrair_beneficiario(texto):
 
         restante = texto[achado.end():]
         restante = re.sub(r"^[\s:\-–]+", "", restante)
+        restante = re.split(r"[,;|]", restante)[0]
 
         nome = []
 

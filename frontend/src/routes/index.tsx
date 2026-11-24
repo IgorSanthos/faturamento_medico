@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { AppHeader } from '../components/AppHeader'
 import { UploadPanel } from '../components/UploadPanel'
+import {
+  ordenarIndices,
+  type ColunaNota,
+  type Direcao,
+} from '../utils/ordenacaoNotas'
 
 type Nota = {
   Prestador?: string
@@ -23,6 +28,8 @@ type Nota = {
   TotalImpostos?: number
   Medico?: string
   SituacaoNota?: string
+  OrigemTomador?: string
+  TomadorOriginal?: string
 }
 
 export const Route = createFileRoute('/')({
@@ -66,6 +73,17 @@ function HomePage() {
 
   const [calculando, setCalculando] = useState(false)
   const [erroCalculo, setErroCalculo] = useState('')
+
+  // Ordenação da tabela de notas (padrão: data, mais recente primeiro)
+  const [ordenacao, setOrdenacao] = useState<{
+    coluna: ColunaNota
+    direcao: Direcao
+  }>({ coluna: 'data', direcao: 'desc' })
+
+  // A ordem só é recalculada ao importar, ao trocar a coluna
+  // ou ao terminar de digitar um médico (evita a linha "pular"
+  // enquanto a pessoa digita).
+  const [versaoOrdem, setVersaoOrdem] = useState(0)
 
   function formatarReais(valor: number = 0) {
     return valor.toLocaleString('pt-BR', {
@@ -122,6 +140,82 @@ function HomePage() {
     }
 
     return 0
+  }
+
+  const ordem = useMemo(
+    () =>
+      ordenarIndices(
+        notas,
+        ordenacao.coluna,
+        ordenacao.direcao,
+        calcularPcc
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [versaoOrdem, ordenacao, notas.length]
+  )
+
+  const notasOrdenadas = ordem
+    .filter((indice) => notas[indice])
+    .map((indice) => ({ nota: notas[indice], indice }))
+
+  function alternarOrdenacao(coluna: ColunaNota) {
+    setOrdenacao((atual) =>
+      atual.coluna === coluna
+        ? {
+            coluna,
+            direcao: atual.direcao === 'asc' ? 'desc' : 'asc',
+          }
+        : {
+            coluna,
+            // data e valores começam do maior; textos de A a Z
+            direcao:
+              coluna === 'cliente' || coluna === 'medico'
+                ? 'asc'
+                : 'desc',
+          }
+    )
+  }
+
+  function cabecalho(
+    coluna: ColunaNota,
+    rotulo: string,
+    alinharDireita = false
+  ) {
+    const ativa = ordenacao.coluna === coluna
+
+    return (
+      <th
+        className={
+          'whitespace-nowrap px-5 py-4 font-semibold text-slate-600' +
+          (alinharDireita ? ' text-right' : '')
+        }
+        aria-sort={
+          ativa
+            ? ordenacao.direcao === 'asc'
+              ? 'ascending'
+              : 'descending'
+            : 'none'
+        }
+      >
+        <button
+          type="button"
+          onClick={() => alternarOrdenacao(coluna)}
+          title="Clique para ordenar"
+          className="inline-flex items-center gap-1 font-semibold hover:text-slate-900"
+        >
+          {rotulo}
+          <span
+            className={ativa ? 'text-blue-600' : 'text-slate-300'}
+          >
+            {ativa
+              ? ordenacao.direcao === 'asc'
+                ? '▲'
+                : '▼'
+              : '↕'}
+          </span>
+        </button>
+      </th>
+    )
   }
 
   async function calcularFaturamento(
@@ -195,7 +289,7 @@ function HomePage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            dados: notas,
+            dados: notasOrdenadas.map((item) => item.nota),
             honorario_por_medico:
               calculos?.honorario_por_medico || 0,
             darf_gps_por_medico:
@@ -286,6 +380,7 @@ function HomePage() {
         <UploadPanel
           onNotasProcessadas={(dados) => {
             setNotas(dados)
+            setVersaoOrdem((v) => v + 1)
 
             sessionStorage.setItem(
               'notas_faturamento',
@@ -342,37 +437,14 @@ function HomePage() {
 
                       <tr className="border-b border-slate-200">
 
-                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">
-                          Data
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">
-                          Cliente
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">
-                          NF
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          Valor
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          IR
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          PCC-4,65%
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 text-right font-semibold text-slate-600">
-                          Valor Liq.
-                        </th>
-
-                        <th className="whitespace-nowrap px-5 py-4 font-semibold text-slate-600">
-                          Médico
-                        </th>
+                        {cabecalho('data', 'Data')}
+                        {cabecalho('cliente', 'Cliente')}
+                        {cabecalho('nf', 'NF')}
+                        {cabecalho('valor', 'Valor', true)}
+                        {cabecalho('ir', 'IR', true)}
+                        {cabecalho('pcc', 'PCC-4,65%', true)}
+                        {cabecalho('liquido', 'Valor Liq.', true)}
+                        {cabecalho('medico', 'Médico')}
 
                       </tr>
 
@@ -380,21 +452,46 @@ function HomePage() {
 
                     <tbody>
 
-                      {notas.map((nota, index) => {
+                      {notasOrdenadas.map(({ nota, indice }) => {
 
                         const cancelada =
                           String(nota.SituacaoNota || '')
                             .toUpperCase()
                             .trim() === 'C'
 
+                        // Nota com intermediário ou beneficiário no corpo
+                        const origemTomador = String(
+                          nota.OrigemTomador || ''
+                        ).toUpperCase()
+
+                        const destaque =
+                          !cancelada && origemTomador !== ''
+
+                        const textoDestaque =
+                          origemTomador === 'INTERMEDIARIO'
+                            ? `Nota com intermediário. Tomador original: ${
+                                nota.TomadorOriginal || 'não informado'
+                              }`
+                            : `Beneficiário informado na nota. Pagante: ${
+                                nota.TomadorOriginal || 'não informado'
+                              }`
+
                         return (
                           <tr
-                            key={index}
-                            title={cancelada ? 'Nota fiscal cancelada' : undefined}
+                            key={indice}
+                            title={
+                              cancelada
+                                ? 'Nota fiscal cancelada'
+                                : destaque
+                                  ? textoDestaque
+                                  : undefined
+                            }
                             className={
                               cancelada
                                 ? 'border-b border-red-200 bg-red-50 text-red-700 last:border-0 cursor-help'
-                                : 'border-b border-slate-100 last:border-0 hover:bg-slate-50'
+                                : destaque
+                                  ? 'border-b border-amber-200 bg-amber-50 text-amber-800 last:border-0 cursor-help'
+                                  : 'border-b border-slate-100 last:border-0 hover:bg-slate-50'
                             }
                           >
 
@@ -459,17 +556,18 @@ function HomePage() {
                                 placeholder="Digite o médico"
                                 disabled={cancelada}
                                 onChange={(event) =>
-                                  alterarMedico(index, event.target.value)
+                                  alterarMedico(indice, event.target.value)
                                 }
                                 onBlur={(event) => {
                                   const novasNotas = [...notas]
 
-                                  novasNotas[index] = {
-                                    ...novasNotas[index],
+                                  novasNotas[indice] = {
+                                    ...novasNotas[indice],
                                     Medico: event.currentTarget.value,
                                   }
 
                                   setNotas(novasNotas)
+                                  setVersaoOrdem((v) => v + 1)
 
                                   sessionStorage.setItem(
                                     'notas_faturamento',
