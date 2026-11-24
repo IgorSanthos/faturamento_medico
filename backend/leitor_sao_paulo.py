@@ -1,5 +1,6 @@
 import csv
 import re
+import unicodedata
 
 
 # ============================================================
@@ -218,6 +219,91 @@ def extrair_nome_medico(texto):
 
 
 # ============================================================
+# IDENTIFICAÇÃO DO BENEFICIÁRIO (PACIENTE / MENOR / DEPENDENTE...)
+#
+# Às vezes a nota sai no nome de quem pagou, e o beneficiário
+# do serviço vem escrito no corpo da nota. Exemplos:
+#   "na Paciente: Maria Silva em 17/10/2026"
+#   "referente ao menor João Souza, nascido em ..."
+#   "beneficiário Ana Lima"  |  "dependente ..."  |  "titular ..."
+# ============================================================
+
+PALAVRAS_BENEFICIARIO = re.compile(
+    r'(?<!\w)(paciente|menor|benefici[aá]ri[oa]|dependente|titular)(?!\w)',
+    re.IGNORECASE
+)
+
+PARTICULAS_NOME = {"de", "da", "do", "dos", "das", "e", "di", "del"}
+
+# Palavras que indicam que o nome já terminou
+PARAR_NOME = {
+    "em", "no", "na", "nos", "nas", "nascido", "nascida", "nasc", "dn",
+    "cpf", "cnpj", "rg", "crm", "rqe", "data", "realizado", "realizada",
+    "para", "hospital", "clinica", "clínica", "valor", "conforme",
+    "prestado", "prestada", "por", "com", "sob", "que", "foi",
+}
+
+
+def _sem_acento(texto):
+    return "".join(
+        c for c in unicodedata.normalize("NFD", texto)
+        if unicodedata.category(c) != "Mn"
+    ).upper().strip()
+
+
+def extrair_beneficiario(texto):
+    """
+    Procura "paciente / menor / beneficiário / dependente / titular"
+    seguido de um nome próprio e devolve o nome (ou '' se não achar).
+    """
+    if not texto:
+        return ""
+
+    texto = " ".join(texto.split())
+
+    for achado in PALAVRAS_BENEFICIARIO.finditer(texto):
+
+        restante = texto[achado.end():]
+        restante = re.sub(r"^[\s:\-–]+", "", restante)
+
+        nome = []
+
+        for token in restante.split():
+
+            nucleo = token.strip(",.;:|()")
+
+            if not nucleo:
+                break
+
+            if any(c.isdigit() for c in nucleo):
+                break
+
+            if nucleo.lower() in PARAR_NOME:
+                break
+
+            if nucleo.lower() in PARTICULAS_NOME and nome:
+                nome.append(nucleo)
+            elif nucleo[0].isupper():
+                nome.append(nucleo)
+            else:
+                break
+
+            # pontuação no fim do token encerra o nome
+            if token[-1] in ",.;|":
+                break
+
+        # não terminar o nome com partícula ("de", "da"...)
+        while nome and nome[-1].lower() in PARTICULAS_NOME:
+            nome.pop()
+
+        # exige nome e sobrenome para evitar falsos positivos
+        if len(nome) >= 2:
+            return " ".join(nome)
+
+    return ""
+
+
+# ============================================================
 # LEITURA DO ARQUIVO
 # ============================================================
 
@@ -281,16 +367,29 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
         tomador = obter_coluna(linha, "Razão Social do Tomador")
 
         # ====================================================
-        # INTERMEDIÁRIO NO LUGAR DO TOMADOR
+        # INTERMEDIÁRIO
         #
-        # Quando a nota tem intermediário (ex.: operadora de saúde),
-        # os dados dele passam a ser o tomador da nota.
+        # Nota com intermediário (ex.: operadora de saúde):
+        #  - tomador NÃO informado -> o intermediário vira o tomador
+        #  - tomador preenchido    -> o tomador é mantido (ou trocado
+        #    pelo beneficiário do corpo da nota, abaixo)
+        # Em ambos os casos OrigemTomador = "INTERMEDIARIO", para a
+        # nota ser pintada de outra cor.
         # ====================================================
         intermediario = obter_coluna(linha, "Razão Social do Intermediário")
         tomador_original = tomador
+        origem_tomador = ""
+
+        tomador_preenchido = bool(
+            tomador_original
+            and _sem_acento(tomador_original) != "NAO INFORMADO"
+        )
 
         if intermediario:
-            tomador = intermediario
+            origem_tomador = "INTERMEDIARIO"
+
+            if not tomador_preenchido:
+                tomador = intermediario
         cidade = obter_coluna(linha, "Cidade do Prestador")
         uf = obter_coluna(linha, "UF do Prestador")
 
@@ -305,6 +404,24 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
 
         discriminacao = obter_coluna(linha, "Discriminação dos Serviços")
         medico = extrair_nome_medico(discriminacao)
+
+        # ====================================================
+        # BENEFICIÁRIO NO LUGAR DO TOMADOR
+        #
+        # Só quando a nota tem tomador (quem pagou) e o beneficiário
+        # citado no corpo da nota é outra pessoa.
+        # ====================================================
+        beneficiario = extrair_beneficiario(discriminacao)
+
+        if (
+            beneficiario
+            and tomador_preenchido
+            and _sem_acento(beneficiario) != _sem_acento(tomador_original)
+        ):
+            tomador = beneficiario
+
+            if not origem_tomador:
+                origem_tomador = "BENEFICIARIO"
 
         if valor_csll > 0:
             valor_pcc_retido = round(valor_total * 0.0465, 2)
@@ -327,6 +444,7 @@ def ler_arquivo_sao_paulo(caminho_arquivo):
             "NumeroNF": numero_nf,
             "TomadorServico": tomador,
             "TomadorOriginal": tomador_original,
+            "OrigemTomador": origem_tomador,
             "ValorTotal": valor_total,
             "TotalImpostos": total_impostos,
             "ValorIr": valor_ir,
